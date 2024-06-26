@@ -6,7 +6,7 @@ require 'open-uri'
 require 'fileutils'
 require 'cgi'
 require 'json'
-requite 'time'
+require 'time'
 require_relative 'wayback_machine_downloader/tidy_bytes'
 require_relative 'wayback_machine_downloader/to_regex'
 require_relative 'wayback_machine_downloader/archive_api'
@@ -291,7 +291,7 @@ class WaybackMachineDownloader
               if uri.meta.has_key?("x-archive-orig-last-modified")
                 original_file_mtime = Time.parse(uri.meta["x-archive-orig-last-modified"])
               end
-            
+
             end
           rescue OpenURI::HTTPError => e
             puts "#{file_url} # #{e}"
