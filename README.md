@@ -3,22 +3,28 @@
 [![Gem Version](https://badge.fury.io/rb/wayback_machine_downloader.svg)](https://rubygems.org/gems/wayback_machine_downloader/)
 [![Build Status](https://travis-ci.org/hartator/wayback-machine-downloader.svg?branch=master)](https://travis-ci.org/hartator/wayback-machine-downloader)
 
-Download an entire website from the Internet Archive Wayback Machine.
+This is a fork of the [Wayback Machine Downloader](https://github.com/hartator/wayback-machine-downloader). With this, you can download a website from the Internet Archive Wayback Machine.
+
+Included here is partial content from other forks, namely those @ [ShiftaDeband](https://github.com/ShiftaDeband/wayback-machine-downloader) and [matthid](https://github.com/matthid/wayback-machine-downloader) — attributions are in the code and go to the original authors; as well as a few additional (future) features.
 
 ## Installation
-
-You need to install Ruby on your system (>= 1.9.2) - if you don't already have it.
+You need to install Ruby on your system (>= 1.9.2) — if you don't already have it.
 Then run:
 
     gem install wayback_machine_downloader
 
 **Tip:** If you run into permission errors, you might have to add `sudo` in front of this command.
 
-## Basic Usage
+For a more portable installation, you can download this repository and navigate to the `wayback_machine_downloader\bin` directory. Then launch PowerShell (psst: Shift + Right Click an empty space in the folder and select "Open PowerShell window here") and run the program with:
 
-Run wayback_machine_downloader with the base url of the website you want to retrieve as a parameter (e.g., http://example.com):
+    ruby wayback_machine_downloader [...]
 
-    wayback_machine_downloader http://example.com
+## Instructions
+### Basic usage
+
+Run wayback_machine_downloader with the base url of the website you want to retrieve as a parameter (e.g., https://example.com):
+
+    wayback_machine_downloader https://example.com
 
 ## How it works
 
@@ -26,7 +32,7 @@ It will download the last version of every file present on Wayback Machine to `.
 
 ## Advanced Usage
 
-	Usage: wayback_machine_downloader http://example.com
+	Usage: wayback_machine_downloader https://example.com
 
 	Download an entire website from the Wayback Machine.
 
@@ -56,7 +62,7 @@ Optional. By default, Wayback Machine Downloader will download files to `./websi
 
 Example:
 
-    wayback_machine_downloader http://example.com --directory downloaded-backup/
+    wayback_machine_downloader https://example.com --directory downloaded-backup/
     
 ## All Timestamps
 
@@ -66,7 +72,7 @@ Optional. This option will download all timestamps/snapshots for a given website
 
 Example:
 
-    wayback_machine_downloader http://example.com --all-timestamps 
+    wayback_machine_downloader https://example.com --all-timestamps 
     
     Will download:
     	websites/example.com/20060715085250/index.html
@@ -83,7 +89,7 @@ Wayback Machine Downloader will then fetch only file versions on or after the ti
 
 Example:
 
-    wayback_machine_downloader http://example.com --from 20060716231334
+    wayback_machine_downloader https://example.com --from 20060716231334
 
 ## To Timestamp
 
@@ -94,7 +100,7 @@ Wayback Machine Downloader will then fetch only file versions on or before the t
 
 Example:
 
-    wayback_machine_downloader http://example.com --to 20100916231334
+    wayback_machine_downloader https://example.com --to 20100916231334
     
 ## Exact Url
 
@@ -104,7 +110,7 @@ Optional. If you want to retrieve only the file matching exactly the url provide
 
 For example, if you only want to download only the html homepage file of example.com:
 
-    wayback_machine_downloader http://example.com --exact-url 
+    wayback_machine_downloader https://example.com --exact-url 
 
 
 ## Only URL Filter
@@ -115,11 +121,11 @@ Optional. You may want to retrieve files which are of a certain type (e.g., .pdf
 
 For example, if you only want to download files inside a specific `my_directory`:
 
-    wayback_machine_downloader http://example.com --only my_directory
+    wayback_machine_downloader https://example.com --only my_directory
 
 Or if you want to download every images without anything else:
 
-    wayback_machine_downloader http://example.com --only "/\.(gif|jpg|jpeg)$/i"
+    wayback_machine_downloader https://example.com --only "/\.(gif|jpg|jpeg)$/i"
 
 ## Exclude URL Filter
 
@@ -129,11 +135,11 @@ Optional. You may want to retrieve files which aren't of a certain type (e.g., .
 
 For example, if you want to avoid downloading files inside `my_directory`:
 
-    wayback_machine_downloader http://example.com --exclude my_directory
+    wayback_machine_downloader https://example.com --exclude my_directory
 
 Or if you want to download everything except images:
 
-    wayback_machine_downloader http://example.com --exclude "/\.(gif|jpg|jpeg)$/i"
+    wayback_machine_downloader https://example.com --exclude "/\.(gif|jpg|jpeg)$/i"
 
 ## Expand downloading to all file types
 
@@ -143,7 +149,7 @@ Optional. By default, Wayback Machine Downloader limits itself to files that res
 
 Example:
 
-    wayback_machine_downloader http://example.com --all
+    wayback_machine_downloader https://example.com --all
 
 ## Only list files without downloading
 
@@ -153,7 +159,7 @@ It will just display the files to be downloaded with their snapshot timestamps a
 
 Example:
 
-    wayback_machine_downloader http://example.com --list
+    wayback_machine_downloader https://example.com --list
 
 ## Maximum number of snapshot pages to consider
 
@@ -163,7 +169,7 @@ Optional. Specify the maximum number of snapshot pages to consider. Count an ave
 
 Example:
 
-    wayback_machine_downloader http://example.com --snapshot-pages 300    
+    wayback_machine_downloader https://example.com --snapshot-pages 300    
 
 ## Download multiple files at a time
 
@@ -173,17 +179,17 @@ Optional. Specify the number of multiple files you want to download at the same 
 
 Example:
 
-    wayback_machine_downloader http://example.com --concurrency 20
+    wayback_machine_downloader https://example.com --concurrency 20
 
 ## Using the Docker image
 
 As an alternative installation way, we have a Docker image! Retrieve the wayback-machine-downloader Docker image this way:
 
-    docker pull hartator/wayback-machine-downloader
+    docker pull strawberrymaster/wayback-machine-downloader
 
 Then, you should be able to use the Docker image to download websites. For example:
 
-    docker run --rm -it -v $PWD/websites:/websites hartator/wayback-machine-downloader http://example.com
+    docker run --rm -it -v $PWD/websites:/websites strawberrymaster/wayback-machine-downloader https://example.com
 
 ## Contributing
 
