@@ -6,6 +6,8 @@ require 'open-uri'
 require 'fileutils'
 require 'cgi'
 require 'json'
+require 'zlib'
+require 'stringio'
 require_relative 'wayback_machine_downloader/tidy_bytes'
 require_relative 'wayback_machine_downloader/to_regex'
 require_relative 'wayback_machine_downloader/archive_api'
@@ -14,10 +16,10 @@ class WaybackMachineDownloader
 
   include ArchiveAPI
 
-  VERSION = "2.3.1"
+  VERSION = "2.3.2"
 
   attr_accessor :base_url, :exact_url, :directory, :all_timestamps,
-    :from_timestamp, :to_timestamp, :only_filter, :exclude_filter, 
+    :from_timestamp, :to_timestamp, :only_filter, :exclude_filter,
     :all, :maximum_pages, :threads_count
 
   def initialize params
@@ -81,22 +83,33 @@ class WaybackMachineDownloader
   end
 
   def get_all_snapshots_to_consider
-    # Note: Passing a page index parameter allow us to get more snapshots,
-    # but from a less fresh index
-    print "Getting snapshot pages"
+    http = Net::HTTP.new("web.archive.org", 443)
+    http.use_ssl = true
+
     snapshot_list_to_consider = []
-    snapshot_list_to_consider += get_raw_list_from_api(@base_url, nil)
-    print "."
-    unless @exact_url
-      @maximum_pages.times do |page_index|
-        snapshot_list = get_raw_list_from_api(@base_url + '/*', page_index)
-        break if snapshot_list.empty?
-        snapshot_list_to_consider += snapshot_list
-        print "."
+
+    http.start do
+      puts "Getting snapshot pages"
+
+      # Fetch the initial set of snapshots
+      snapshot_list_to_consider += get_raw_list_from_api(@base_url, nil, http)
+      print "."
+
+      # Fetch additional pages if the exact URL flag is not set
+      unless @exact_url
+        @maximum_pages.times do |page_index|
+          snapshot_list = get_raw_list_from_api("#{@base_url}/*", page_index, http)
+          break if snapshot_list.empty?
+
+          snapshot_list_to_consider += snapshot_list
+          print "."
+        end
       end
     end
-    puts " found #{snapshot_list_to_consider.length} snaphots to consider."
+
+    puts " found #{snapshot_list_to_consider.length} snapshots to consider."
     puts
+
     snapshot_list_to_consider
   end
 
@@ -105,7 +118,7 @@ class WaybackMachineDownloader
     get_all_snapshots_to_consider.each do |file_timestamp, file_url|
       next unless file_url.include?('/')
       file_id = file_url.split('/')[3..-1].join('/')
-      file_id = CGI::unescape file_id 
+      file_id = CGI::unescape file_id
       file_id = file_id.tidy_bytes unless file_id == ""
       if file_id.nil?
         puts "Malformed file url, ignoring: #{file_url}"
@@ -132,7 +145,7 @@ class WaybackMachineDownloader
       next unless file_url.include?('/')
       file_id = file_url.split('/')[3..-1].join('/')
       file_id_and_timestamp = [file_timestamp, file_id].join('/')
-      file_id_and_timestamp = CGI::unescape file_id_and_timestamp 
+      file_id_and_timestamp = CGI::unescape file_id_and_timestamp
       file_id_and_timestamp = file_id_and_timestamp.tidy_bytes unless file_id_and_timestamp == ""
       if file_id.nil?
         puts "Malformed file url, ignoring: #{file_url}"
@@ -199,18 +212,22 @@ class WaybackMachineDownloader
       puts "\t* Exclude filter too wide (#{exclude_filter.to_s})" if @exclude_filter
       return
     end
- 
+
     puts "#{file_list_by_timestamp.count} files to download:"
 
     threads = []
     @processed_file_count = 0
     @threads_count = 1 unless @threads_count != 0
     @threads_count.times do
+      http = Net::HTTP.new("web.archive.org", 443)
+      http.use_ssl = true
+      http.start()
       threads << Thread.new do
         until file_queue.empty?
           file_remote_info = file_queue.pop(true) rescue nil
-          download_file(file_remote_info) if file_remote_info
+          download_file(file_remote_info, http) if file_remote_info
         end
+        http.finish()
       end
     end
 
@@ -243,7 +260,7 @@ class WaybackMachineDownloader
     end
   end
 
-  def download_file file_remote_info
+  def download_file (file_remote_info, http)
     current_encoding = "".encoding
     file_url = file_remote_info[:file_url].encode(current_encoding)
     file_id = file_remote_info[:file_id]
@@ -268,8 +285,19 @@ class WaybackMachineDownloader
         structure_dir_path dir_path
         open(file_path, "wb") do |file|
           begin
-            URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}").open("Accept-Encoding" => "plain") do |uri|
-              file.write(uri.read)
+            http.get(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}")) do |body|
+              file.write(body)
+
+              if file_path.include? '.gz'
+                file_path_temp = file_path + '.temp'
+                File.rename(file_path, file_path_temp)
+                Zlib::GzipReader.open(file_path_temp) do |gz|
+                  File.open(file_path, 'wb') do |f|
+                    f.write gz.read
+                  end
+                end
+                File.delete(file_path_temp)
+              end
             end
           rescue OpenURI::HTTPError => e
             puts "#{file_url} # #{e}"
