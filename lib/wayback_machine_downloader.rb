@@ -6,8 +6,6 @@ require 'open-uri'
 require 'fileutils'
 require 'cgi'
 require 'json'
-require 'zlib'
-require 'stringio'
 require_relative 'wayback_machine_downloader/tidy_bytes'
 require_relative 'wayback_machine_downloader/to_regex'
 require_relative 'wayback_machine_downloader/archive_api'
@@ -287,17 +285,6 @@ class WaybackMachineDownloader
           begin
             http.get(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}")) do |body|
               file.write(body)
-
-              if file_path.include? '.gz'
-                file_path_temp = file_path + '.temp'
-                File.rename(file_path, file_path_temp)
-                Zlib::GzipReader.open(file_path_temp) do |gz|
-                  File.open(file_path, 'wb') do |f|
-                    f.write gz.read
-                  end
-                end
-                File.delete(file_path_temp)
-              end
             end
           rescue OpenURI::HTTPError => e
             puts "#{file_url} # #{e}"
