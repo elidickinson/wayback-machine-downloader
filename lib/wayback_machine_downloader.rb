@@ -201,7 +201,7 @@ class WaybackMachineDownloader
     puts "Downloading #{@base_url} to #{backup_path} from Wayback Machine archives."
     puts
 
-    if file_list_by_timestamp.count == 0
+    if file_list_by_timestamp.empty?
       puts "No files to download."
       puts "Possible reasons:"
       puts "\t* Site is not in Wayback Machine Archive."
@@ -215,18 +215,23 @@ class WaybackMachineDownloader
     puts "#{file_list_by_timestamp.count} files to download:"
 
     threads = []
+    mutex = Mutex.new
     @processed_file_count = 0
     @threads_count = 1 unless @threads_count != 0
     @threads_count.times do
-      http = Net::HTTP.new("web.archive.org", 443)
-      http.use_ssl = true
-      http.start()
       threads << Thread.new do
-        until file_queue.empty?
-          file_remote_info = file_queue.pop(true) rescue nil
-          download_file(file_remote_info, http) if file_remote_info
+        http = Net::HTTP.new("web.archive.org", 443)
+        http.use_ssl = true
+
+        begin
+          until file_queue.empty?
+            file_remote_info = nil
+            mutex.synchronize { file_remote_info = file_queue.pop(true) rescue nil }
+            download_file(file_remote_info, http) if file_remote_info
+          end
+        ensure
+          http.finish if http.started?
         end
-        http.finish()
       end
     end
 
@@ -265,7 +270,7 @@ class WaybackMachineDownloader
     file_id = file_remote_info[:file_id]
     file_timestamp = file_remote_info[:timestamp]
     file_path_elements = file_id.split('/')
-    original_file_mtime = nil
+
     if file_id == ""
       dir_path = backup_path
       file_path = backup_path + 'index.html'
@@ -287,11 +292,6 @@ class WaybackMachineDownloader
           begin
             http.get(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}")) do |body|
               file.write(body)
-
-              if uri.meta.has_key?("x-archive-orig-last-modified")
-                original_file_mtime = Time.parse(uri.meta["x-archive-orig-last-modified"])
-              end
-
             end
           rescue OpenURI::HTTPError => e
             puts "#{file_url} # #{e}"
