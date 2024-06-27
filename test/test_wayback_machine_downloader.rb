@@ -5,7 +5,7 @@ class WaybackMachineDownloaderTest < Minitest::Test
 
   def setup
     @wayback_machine_downloader = WaybackMachineDownloader.new(
-      base_url: 'http://www.onlyfreegames.net')
+      base_url: 'https://www.example.com',
     $stdout = StringIO.new
   end
 
@@ -14,16 +14,16 @@ class WaybackMachineDownloaderTest < Minitest::Test
   end
 
   def test_base_url_being_set
-    assert_equal 'http://www.onlyfreegames.net', @wayback_machine_downloader.base_url
+    assert_equal 'https://www.example.com', @wayback_machine_downloader.base_url
   end
 
   def test_backup_name_being_set
-    assert_equal 'www.onlyfreegames.net', @wayback_machine_downloader.backup_name
+    assert_equal 'www.example.com', @wayback_machine_downloader.backup_name
   end
 
   def test_backup_name_being_set_when_base_url_is_domain
-    @wayback_machine_downloader.base_url = 'www.onlyfreegames.net'
-    assert_equal 'www.onlyfreegames.net', @wayback_machine_downloader.backup_name
+    @wayback_machine_downloader.base_url = 'www.example.com'
+    assert_equal 'www.example.com', @wayback_machine_downloader.backup_name
   end
 
   def test_file_list_curated
@@ -105,7 +105,7 @@ class WaybackMachineDownloaderTest < Minitest::Test
     @wayback_machine_downloader.all = true
     assert_equal 69, @wayback_machine_downloader.get_file_list_curated.size
   end
- 
+
   # Testing encoding conflicts needs a different base_url
   def test_nonascii_suburls_download
     @wayback_machine_downloader = WaybackMachineDownloader.new(
