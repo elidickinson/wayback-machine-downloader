@@ -7,6 +7,8 @@ require 'fileutils'
 require 'cgi'
 require 'json'
 require 'time'
+require 'concurrent'
+require 'logger'
 require_relative 'wayback_machine_downloader/tidy_bytes'
 require_relative 'wayback_machine_downloader/to_regex'
 require_relative 'wayback_machine_downloader/archive_api'
@@ -16,12 +18,20 @@ class WaybackMachineDownloader
   include ArchiveAPI
 
   VERSION = "2.3.2"
+  DEFAULT_TIMEOUT = 30
+  MAX_RETRIES = 3
+  RETRY_DELAY = 2
+  RATE_LIMIT = 0.25  # Delay between requests in seconds
+  CONNECTION_POOL_SIZE = 10
+  HTTP_CACHE_SIZE = 1000
+  MEMORY_BUFFER_SIZE = 16384  # 16KB chunks
 
   attr_accessor :base_url, :exact_url, :directory, :all_timestamps,
     :from_timestamp, :to_timestamp, :only_filter, :exclude_filter,
-    :all, :maximum_pages, :threads_count
+    :all, :maximum_pages, :threads_count, :logger
 
   def initialize params
+    validate_params(params)
     @base_url = params[:base_url]
     @exact_url = params[:exact_url]
     @directory = params[:directory]
@@ -32,7 +42,11 @@ class WaybackMachineDownloader
     @exclude_filter = params[:exclude_filter]
     @all = params[:all]
     @maximum_pages = params[:maximum_pages] ? params[:maximum_pages].to_i : 100
-    @threads_count = params[:threads_count].to_i
+    @threads_count = [params[:threads_count].to_i, 1].max # Garante mínimo de 1 thread
+    @timeout = params[:timeout] || DEFAULT_TIMEOUT
+    @logger = setup_logger
+    @http_cache = Concurrent::Map.new
+    @failed_downloads = Concurrent::Array.new
   end
 
   def backup_name
@@ -82,28 +96,30 @@ class WaybackMachineDownloader
   end
 
   def get_all_snapshots_to_consider
-    http = Net::HTTP.new("web.archive.org", 443)
-    http.use_ssl = true
-
+    http = setup_http_client
     snapshot_list_to_consider = []
 
-    http.start do
-      puts "Getting snapshot pages"
+    begin
+      http.start do |connection|
+        puts "Getting snapshot pages"
 
-      # Fetch the initial set of snapshots
-      snapshot_list_to_consider += get_raw_list_from_api(@base_url, nil, http)
-      print "."
+        # Fetch the initial set of snapshots
+        snapshot_list_to_consider += get_raw_list_from_api(@base_url, nil, connection)
+        print "."
 
-      # Fetch additional pages if the exact URL flag is not set
-      unless @exact_url
-        @maximum_pages.times do |page_index|
-          snapshot_list = get_raw_list_from_api("#{@base_url}/*", page_index, http)
-          break if snapshot_list.empty?
+        # Fetch additional pages if the exact URL flag is not set
+        unless @exact_url
+          @maximum_pages.times do |page_index|
+            snapshot_list = get_raw_list_from_api("#{@base_url}/*", page_index, connection)
+            break if snapshot_list.empty?
 
-          snapshot_list_to_consider += snapshot_list
-          print "."
+            snapshot_list_to_consider += snapshot_list
+            print "."
+          end
         end
       end
+    ensure
+      http.finish if http.started?
     end
 
     puts " found #{snapshot_list_to_consider.length} snapshots to consider."
@@ -199,46 +215,49 @@ class WaybackMachineDownloader
   def download_files
     start_time = Time.now
     puts "Downloading #{@base_url} to #{backup_path} from Wayback Machine archives."
-    puts
-
+    
     if file_list_by_timestamp.empty?
       puts "No files to download."
-      puts "Possible reasons:"
-      puts "\t* Site is not in Wayback Machine Archive."
-      puts "\t* From timestamp too much in the future." if @from_timestamp and @from_timestamp != 0
-      puts "\t* To timestamp too much in the past." if @to_timestamp and @to_timestamp != 0
-      puts "\t* Only filter too restrictive (#{only_filter.to_s})" if @only_filter
-      puts "\t* Exclude filter too wide (#{exclude_filter.to_s})" if @exclude_filter
       return
     end
 
-    puts "#{file_list_by_timestamp.count} files to download:"
-
-    threads = []
-    mutex = Mutex.new
+    total_files = file_list_by_timestamp.count
+    puts "#{total_files} files to download:"
+    
     @processed_file_count = 0
-    @threads_count = 1 unless @threads_count != 0
-    @threads_count.times do
-      threads << Thread.new do
-        http = Net::HTTP.new("web.archive.org", 443)
-        http.use_ssl = true
-
+    @download_mutex = Mutex.new
+    
+    thread_count = [@threads_count, CONNECTION_POOL_SIZE].min
+    pool = Concurrent::FixedThreadPool.new(thread_count)
+    semaphore = Concurrent::Semaphore.new(CONNECTION_POOL_SIZE)
+    
+    file_list_by_timestamp.each do |file_remote_info|
+      pool.post do
+        semaphore.acquire
+        http = nil
         begin
-          until file_queue.empty?
-            file_remote_info = nil
-            mutex.synchronize { file_remote_info = file_queue.pop(true) rescue nil }
-            download_file(file_remote_info, http) if file_remote_info
+          http = setup_http_client
+          http.start do |connection|
+            result = download_file(file_remote_info, connection)
+            @download_mutex.synchronize do
+              @processed_file_count += 1
+              puts result if result
+            end
           end
         ensure
-          http.finish if http.started?
+          semaphore.release
+          http&.finish if http&.started?
+          sleep(RATE_LIMIT)
         end
       end
     end
 
-    threads.each(&:join)
+    pool.shutdown
+    pool.wait_for_termination
+
     end_time = Time.now
-    puts
-    puts "Download completed in #{(end_time - start_time).round(2)}s, saved in #{backup_path} (#{file_list_by_timestamp.size} files)"
+    puts "\nDownload completed in #{(end_time - start_time).round(2)}s, saved in #{backup_path}"
+    cleanup
   end
 
   def structure_dir_path dir_path
@@ -288,38 +307,18 @@ class WaybackMachineDownloader
     unless File.exist? file_path
       begin
         structure_dir_path dir_path
-        open(file_path, "wb") do |file|
-          begin
-            http.get(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}")) do |body|
-              file.write(body)
-            end
-          rescue OpenURI::HTTPError => e
-            puts "#{file_url} # #{e}"
-            if @all
-              file.write(e.io.read)
-              puts "#{file_path} saved anyway."
-            end
-          rescue StandardError => e
-            puts "#{file_url} # #{e}"
-          end
-        end
+        download_with_retry(file_path, file_url, file_timestamp, http)
+        "#{file_url} -> #{file_path} (#{@processed_file_count + 1}/#{file_list_by_timestamp.size})"
       rescue StandardError => e
-        puts "#{file_url} # #{e}"
-      ensure
+        msg = "#{file_url} # #{e}"
         if not @all and File.exist?(file_path) and File.size(file_path) == 0
           File.delete(file_path)
-          puts "#{file_path} was empty and was removed."
+          msg += "\n#{file_path} was empty and was removed."
         end
-      end
-      semaphore.synchronize do
-        @processed_file_count += 1
-        puts "#{file_url} -> #{file_path} (#{@processed_file_count}/#{file_list_by_timestamp.size})"
+        msg
       end
     else
-      semaphore.synchronize do
-        @processed_file_count += 1
-        puts "#{file_url} # #{file_path} already exists. (#{@processed_file_count}/#{file_list_by_timestamp.size})"
-      end
+      "#{file_url} # #{file_path} already exists. (#{@processed_file_count + 1}/#{file_list_by_timestamp.size})"
     end
   end
 
@@ -333,5 +332,89 @@ class WaybackMachineDownloader
 
   def semaphore
     @semaphore ||= Mutex.new
+  end
+
+  private
+
+  def validate_params(params)
+    raise ArgumentError, "Base URL is required" unless params[:base_url]
+    raise ArgumentError, "Maximum pages must be positive" if params[:maximum_pages] && params[:maximum_pages].to_i <= 0
+    # Removida validação de threads_count pois agora é forçado a ser positivo
+  end
+
+  def setup_logger
+    logger = Logger.new(STDOUT)
+    logger.level = ENV['DEBUG'] ? Logger::DEBUG : Logger::INFO
+    logger.formatter = proc do |severity, datetime, progname, msg|
+      "#{datetime.strftime('%Y-%m-%d %H:%M:%S')} [#{severity}] #{msg}\n"
+    end
+    logger
+  end
+
+  def setup_http_client
+    cached_client = @http_cache[Thread.current.object_id]
+    return cached_client if cached_client&.active?
+
+    http = Net::HTTP.new("web.archive.org", 443)
+    http.use_ssl = true
+    http.read_timeout = @timeout
+    http.open_timeout = @timeout
+    http.keep_alive_timeout = 30
+    http.max_retries = MAX_RETRIES
+    
+    @http_cache[Thread.current.object_id] = http
+    http
+  end
+
+  def download_with_retry(file_path, file_url, file_timestamp, connection)
+    retries = 0
+    begin
+      request = Net::HTTP::Get.new(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}"))
+      request["Connection"] = "keep-alive"
+      request["User-Agent"] = "WaybackMachineDownloader/#{VERSION}"
+      
+      response = connection.request(request)
+      
+      case response
+      when Net::HTTPSuccess
+        File.open(file_path, "wb") do |file|
+          if block_given?
+            yield(response, file)
+          else
+            file.write(response.body)
+          end
+        end
+      when Net::HTTPTooManyRequests
+        sleep(RATE_LIMIT * 2)
+        raise "Rate limited, retrying..."
+      else
+        raise "HTTP Error: #{response.code} #{response.message}"
+      end
+      
+    rescue StandardError => e
+      if retries < MAX_RETRIES
+        retries += 1
+        @logger.warn("Retry #{retries}/#{MAX_RETRIES} for #{file_url}: #{e.message}")
+        sleep(RETRY_DELAY * retries)
+        retry
+      else
+        @failed_downloads << {url: file_url, error: e.message}
+        raise e
+      end
+    end
+  end
+
+  def cleanup
+    @http_cache.each_value do |client|
+      client.finish if client&.started?
+    end
+    @http_cache.clear
+    
+    if @failed_downloads.any?
+      @logger.error("Failed downloads summary:")
+      @failed_downloads.each do |failure|
+        @logger.error("  #{failure[:url]} - #{failure[:error]}")
+      end
+    end
   end
 end
