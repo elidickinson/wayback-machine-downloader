@@ -11,7 +11,8 @@ Gem::Specification.new do |s|
   s.files       = ["lib/wayback_machine_downloader.rb", "lib/wayback_machine_downloader/tidy_bytes.rb", "lib/wayback_machine_downloader/to_regex.rb", "lib/wayback_machine_downloader/archive_api.rb"]
   s.homepage    = "https://github.com/hartator/wayback-machine-downloader"
   s.license     = "MIT"
-  s.required_ruby_version = '>= 1.9.2'
-  s.add_development_dependency 'rake', '~> 12.2'
-  s.add_development_dependency 'minitest', '~> 5.2'
+  s.required_ruby_version = ">= 1.9.2"
+  s.add_runtime_dependency "concurrent-ruby", "~> 1.3", ">= 1.3.4"
+  s.add_development_dependency "rake", "~> 12.2"
+  s.add_development_dependency "minitest", "~> 5.2"
 end
