@@ -1,5 +1,3 @@
-require './lib/wayback_machine_downloader'
-
 Gem::Specification.new do |s|
   s.name        = "wayback_machine_downloader"
   s.version     = WaybackMachineDownloader::VERSION
