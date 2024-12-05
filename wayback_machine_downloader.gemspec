@@ -12,6 +12,7 @@ Gem::Specification.new do |s|
   s.homepage    = "https://github.com/hartator/wayback-machine-downloader"
   s.license     = "MIT"
   s.required_ruby_version = '>= 1.9.2'
+  s.add_runtime_dependency 'concurrent-ruby', '~> 1.2'
   s.add_development_dependency 'rake', '~> 12.2'
   s.add_development_dependency 'minitest', '~> 5.2'
 end

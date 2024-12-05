@@ -42,7 +42,7 @@ class WaybackMachineDownloader
     @exclude_filter = params[:exclude_filter]
     @all = params[:all]
     @maximum_pages = params[:maximum_pages] ? params[:maximum_pages].to_i : 100
-    @threads_count = [params[:threads_count].to_i, 1].max # at least 1 thread
+    @threads_count = [params[:threads_count].to_i, 1].max # Garante mínimo de 1 thread
     @timeout = params[:timeout] || DEFAULT_TIMEOUT
     @logger = setup_logger
     @http_cache = Concurrent::Map.new
@@ -339,6 +339,7 @@ class WaybackMachineDownloader
   def validate_params(params)
     raise ArgumentError, "Base URL is required" unless params[:base_url]
     raise ArgumentError, "Maximum pages must be positive" if params[:maximum_pages] && params[:maximum_pages].to_i <= 0
+    # Removida validação de threads_count pois agora é forçado a ser positivo
   end
 
   def setup_logger
