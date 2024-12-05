@@ -5,7 +5,8 @@ class WaybackMachineDownloaderTest < Minitest::Test
 
   def setup
     @wayback_machine_downloader = WaybackMachineDownloader.new(
-      base_url: 'https://www.example.com',
+      base_url: 'https://www.example.com'
+    )
     $stdout = StringIO.new
   end
 
