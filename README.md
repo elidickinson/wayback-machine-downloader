@@ -1,23 +1,43 @@
 # Wayback Machine Downloader
 
 [![Gem Version](https://badge.fury.io/rb/wayback_machine_downloader.svg)](https://rubygems.org/gems/wayback_machine_downloader/)
-[![Build Status](https://travis-ci.org/hartator/wayback-machine-downloader.svg?branch=master)](https://travis-ci.org/hartator/wayback-machine-downloader)
 
 This is a fork of the [Wayback Machine Downloader](https://github.com/hartator/wayback-machine-downloader). With this, you can download a website from the Internet Archive Wayback Machine.
 
 Included here is partial content from other forks, namely those @ [ShiftaDeband](https://github.com/ShiftaDeband/wayback-machine-downloader) and [matthid](https://github.com/matthid/wayback-machine-downloader) — attributions are in the code and go to the original authors; as well as a few additional (future) features.
 
 ## Installation
-You need to install Ruby on your system (>= 1.9.2) — if you don't already have it.
-Then run:
+Note: You need to install Ruby on your system (>= 2.3) to run ths program — if you don't already have it.
 
-    gem install wayback_machine_downloader
+1. Clone/download this repository
+2. In your terminal (e.g. Command Prompt, PowerShell, Windows Terminal), navigate to the directory where you cloned/downloaded this repository
+3. Navigate to `wayback_machine_downloader\bin` (psst, Windows users: open this directory in File Explorer, then press Shift + Right Click → "Open Terminal here")
+4. Run:
+```bash
+ruby wayback_machine_downloader [options] URL
+```
 
-**Tip:** If you run into permission errors, you might have to add `sudo` in front of this command.
+### Using Docker
+We have a Docker image! Sorta. It's not on Docker Hub yet, but you can build it yourself. Here's how:
 
-For a more portable installation, you can download this repository and navigate to the `wayback_machine_downloader\bin` directory. Then launch PowerShell (psst: Shift + Right Click an empty space in the folder and select "Open PowerShell window here") and run the program with:
+```bash
+docker build -t wayback_machine_downloader .
 
-    ruby wayback_machine_downloader [...]
+docker run -it --rm wayback_machine_downloader [options] URL
+```
+
+# Constants
+There are a few constants that can be edited in the `wayback_machine_downloader.rb` file for your convenience. The default values may be conservative, so you can adjust them to your needs. They are:
+
+- `DEFAULT_TIMEOUT` - The default timeout (in seconds) for HTTP requests. Default is 30 seconds.
+- `MAX_RETRIES` - The maximum number of retries for HTTP requests. Default is 3.
+- `RETRY_DELAY` - The delay (in seconds) between retries for HTTP requests. Default is 2 seconds.
+- `RATE_LIMIT` - The rate limit (in seconds) for HTTP requests. Default is 0.25 seconds.
+- `CONNECTION_POOL_SIZE` - The size of the HTTP connection pool. Default is 10 connections.
+- `HTTP_CACHE_SIZE` - The size of the HTTP cache. Default is 1000.
+- `MEMORY_BUFFER_SIZE` - The size of the memory buffer (in bytes) for downloads. Default is 16KB.
+
+---
 
 ## Instructions
 ### Basic usage
@@ -180,16 +200,6 @@ Optional. Specify the number of multiple files you want to download at the same 
 Example:
 
     wayback_machine_downloader https://example.com --concurrency 20
-
-## Using the Docker image
-
-As an alternative installation way, we have a Docker image! Retrieve the wayback-machine-downloader Docker image this way:
-
-    docker pull strawberrymaster/wayback-machine-downloader
-
-Then, you should be able to use the Docker image to download websites. For example:
-
-    docker run --rm -it -v $PWD/websites:/websites strawberrymaster/wayback-machine-downloader https://example.com
 
 ## Contributing
 
