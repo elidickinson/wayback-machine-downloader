@@ -339,7 +339,6 @@ class WaybackMachineDownloader
   def validate_params(params)
     raise ArgumentError, "Base URL is required" unless params[:base_url]
     raise ArgumentError, "Maximum pages must be positive" if params[:maximum_pages] && params[:maximum_pages].to_i <= 0
-    # Removida validação de threads_count pois agora é forçado a ser positivo
   end
 
   def setup_logger
