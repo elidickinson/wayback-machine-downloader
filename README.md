@@ -40,17 +40,16 @@ There are a few constants that can be edited in the `wayback_machine_downloader.
 
 ## Instructions
 ### Basic usage
-
-Run wayback_machine_downloader with the base url of the website you want to retrieve as a parameter (e.g., https://example.com):
-
-    ruby wayback_machine_downloader https://example.com
+Run `wayback_machine_downloader` with the base URL of the website you want to retrieve as a parameter (e.g., https://example.com):
+```bash
+ruby wayback_machine_downloader https://example.com
+```
 
 ## How it works
+It will download the last version of every file present on Wayback Machine to `./websites/example.com/`. It will also re-create a directory structure and auto-create `index.html` pages to work seamlessly with Apache and Nginx. All files downloaded are the original ones and not Wayback Machine rewritten versions; this way, URLs and links structure are the same as before.
 
-It will download the last version of every file present on Wayback Machine to `./websites/example.com/`. It will also re-create a directory structure and auto-create `index.html` pages to work seamlessly with Apache and Nginx. All files downloaded are the original ones and not Wayback Machine rewritten versions. This way, URLs and links structure are the same as before.
-
-## Advanced Usage
-
+## Advanced usage
+```
 	Usage: ruby wayback_machine_downloader https://example.com
 
 	Download an entire website from the Wayback Machine.
@@ -72,25 +71,27 @@ It will download the last version of every file present on Wayback Machine to `.
 	    -p, --maximum-snapshot NUMBER    Maximum snapshot pages to consider (Default is 100)
 					     Count an average of 150,000 snapshots per page
 	    -l, --list                       Only list file urls in a JSON format with the archived timestamps, won't download anything
+```
 	    
-## Specify directory to save files to
+### Specify directory to save files to
 
     -d, --directory PATH
 
 Optional. By default, Wayback Machine Downloader will download files to `./websites/` followed by the domain name of the website. You may want to save files in a specific directory using this option.
 
 Example:
+```bash
+ruby wayback_machine_downloader https://example.com --directory downloaded-backup/
+```
 
-    ruby wayback_machine_downloader https://example.com --directory downloaded-backup/
-    
-## All Timestamps
+### All timestamps
 
     -s, --all-timestamps 
 
 Optional. This option will download all timestamps/snapshots for a given website. It will uses the timestamp of each snapshot as directory.
 
 Example:
-
+```bash
     ruby wayback_machine_downloader https://example.com --all-timestamps 
     
     Will download:
@@ -98,8 +99,9 @@ Example:
     	websites/example.com/20051120005053/index.html
     	websites/example.com/20060111095815/img/logo.png
     	...
+```
 
-## From Timestamp
+### From timestamp
 
     -f, --from TIMESTAMP
 
@@ -107,10 +109,11 @@ Optional. You may want to supply a from timestamp to lock your backup to a speci
 Wayback Machine Downloader will then fetch only file versions on or after the timestamp specified.
 
 Example:
-
+```bash
     ruby wayback_machine_downloader https://example.com --from 20060716231334
+```
 
-## To Timestamp
+### To timestamp
 
     -t, --to TIMESTAMP
 
@@ -121,84 +124,90 @@ Example:
 
     ruby wayback_machine_downloader https://example.com --to 20100916231334
     
-## Exact Url
+### Exact url
 
 	-e, --exact-url 
 
 Optional. If you want to retrieve only the file matching exactly the url provided, you can use this flag. It will avoid downloading anything else.
 
 For example, if you only want to download only the html homepage file of example.com:
-
+```bash
     ruby wayback_machine_downloader https://example.com --exact-url 
+```
 
-
-## Only URL Filter
+### Only URL filter
 
      -o, --only ONLY_FILTER
 
 Optional. You may want to retrieve files which are of a certain type (e.g., .pdf, .jpg, .wrd...) or are in a specific directory. To do so, you can supply the `--only` flag with a string or a regex (using the '/regex/' notation) to limit which files Wayback Machine Downloader will download.
 
 For example, if you only want to download files inside a specific `my_directory`:
-
+```bash
     ruby wayback_machine_downloader https://example.com --only my_directory
-
+```
 Or if you want to download every images without anything else:
-
+```bash
     ruby wayback_machine_downloader https://example.com --only "/\.(gif|jpg|jpeg)$/i"
+```
 
-## Exclude URL Filter
+### Exclude URL filter
 
      -x, --exclude EXCLUDE_FILTER
 
 Optional. You may want to retrieve files which aren't of a certain type (e.g., .pdf, .jpg, .wrd...) or aren't in a specific directory. To do so, you can supply the `--exclude` flag with a string or a regex (using the '/regex/' notation) to limit which files Wayback Machine Downloader will download.
 
 For example, if you want to avoid downloading files inside `my_directory`:
-
+```bash
     ruby wayback_machine_downloader https://example.com --exclude my_directory
-
+```
 Or if you want to download everything except images:
-
+```bash
     ruby wayback_machine_downloader https://example.com --exclude "/\.(gif|jpg|jpeg)$/i"
+```
 
-## Expand downloading to all file types
+### Expand downloading to all file types
 
      -a, --all
 
 Optional. By default, Wayback Machine Downloader limits itself to files that responded with 200 OK code. If you also need errors files (40x and 50x codes) or redirections files (30x codes), you can use the `--all` or `-a` flag and Wayback Machine Downloader will download them in addition of the 200 OK files. It will also keep empty files that are removed by default.
 
 Example:
-
+```bash
     ruby wayback_machine_downloader https://example.com --all
+```
 
-## Only list files without downloading
+### Only list files without downloading
 
      -l, --list
 
 It will just display the files to be downloaded with their snapshot timestamps and urls. The output format is JSON. It won't download anything. It's useful for debugging or to connect to another application.
 
 Example:
-
+```bash
     ruby wayback_machine_downloader https://example.com --list
+```
 
-## Maximum number of snapshot pages to consider
+### Maximum number of snapshot pages to consider
 
     -p, --snapshot-pages NUMBER    
 
 Optional. Specify the maximum number of snapshot pages to consider. Count an average of 150,000 snapshots per page. 100 is the default maximum number of snapshot pages and should be sufficient for most websites. Use a bigger number if you want to download a very large website.
 
 Example:
-
+```bash
     ruby wayback_machine_downloader https://example.com --snapshot-pages 300    
+```
 
-## Download multiple files at a time
+### Download multiple files at a time
 
     -c, --concurrency NUMBER  
 
 Optional. Specify the number of multiple files you want to download at the same time. Allows one to speed up the download of a website significantly. Default is to download one file at a time.
 
 Example:
-
+```bash
     ruby wayback_machine_downloader https://example.com --concurrency 20
+```
 
 ## Contributing
 
