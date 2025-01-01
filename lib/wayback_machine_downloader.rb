@@ -135,7 +135,7 @@ class WaybackMachineDownloader
     @exclude_filter = params[:exclude_filter]
     @all = params[:all]
     @maximum_pages = params[:maximum_pages] ? params[:maximum_pages].to_i : 100
-    @threads_count = [params[:threads_count].to_i, 1].max # Garante mínimo de 1 thread
+    @threads_count = [params[:threads_count].to_i, 1].max
     @timeout = params[:timeout] || DEFAULT_TIMEOUT
     @logger = setup_logger
     @failed_downloads = Concurrent::Array.new

@@ -34,7 +34,6 @@ There are a few constants that can be edited in the `wayback_machine_downloader.
 - `RETRY_DELAY` - The delay (in seconds) between retries for HTTP requests. Default is 2 seconds.
 - `RATE_LIMIT` - The rate limit (in seconds) for HTTP requests. Default is 0.25 seconds.
 - `CONNECTION_POOL_SIZE` - The size of the HTTP connection pool. Default is 10 connections.
-- `HTTP_CACHE_SIZE` - The size of the HTTP cache. Default is 1000.
 - `MEMORY_BUFFER_SIZE` - The size of the memory buffer (in bytes) for downloads. Default is 16KB.
 
 ---
