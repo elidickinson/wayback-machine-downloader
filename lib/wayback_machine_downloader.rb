@@ -136,6 +136,7 @@ class WaybackMachineDownloader
     @all = params[:all]
     @maximum_pages = params[:maximum_pages] ? params[:maximum_pages].to_i : 100
     @threads_count = [params[:threads_count].to_i, 1].max
+    @rewritten = params[:rewritten]
     @timeout = params[:timeout] || DEFAULT_TIMEOUT
     @logger = setup_logger
     @failed_downloads = Concurrent::Array.new
@@ -428,7 +429,13 @@ class WaybackMachineDownloader
   def download_with_retry(file_path, file_url, file_timestamp, connection)
     retries = 0
     begin
-      request = Net::HTTP::Get.new(URI("https://web.archive.org/web/#{file_timestamp}id_/#{file_url}"))
+      wayback_url = if @rewritten
+        "https://web.archive.org/web/#{file_timestamp}/#{file_url}"
+      else  
+        "https://web.archive.org/web/#{file_timestamp}id_/#{file_url}"
+      end
+      
+      request = Net::HTTP::Get.new(URI(wayback_url))
       request["Connection"] = "keep-alive"
       request["User-Agent"] = "WaybackMachineDownloader/#{VERSION}"
       

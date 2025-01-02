@@ -58,6 +58,10 @@ option_parser = OptionParser.new do |opts|
     options[:list] = true
   end
 
+  opts.on("-r", "--rewritten", "Downloads the rewritten Wayback Machine files instead of the original files") do |t|
+    options[:rewritten] = t
+  end
+
   opts.on("-v", "--version", "Display version") do |t|
     options[:version] = t
   end
