@@ -18,7 +18,7 @@ ruby wayback_machine_downloader [options] URL
 ```
 
 ### Using Docker
-We have a Docker image! See [#Packages](https://github.com/users/StrawberryMaster/packages?repo_name=wayback-machine-downloader) for the latest version. You can also build it yourself. Here's how:
+We have a Docker image! See [#Packages](https://github.com/StrawberryMaster/wayback-machine-downloader/pkgs/container/wayback-machine-downloader) for the latest version. You can also build it yourself. Here's how:
 
 ```bash
 docker build -t wayback_machine_downloader .
