@@ -1,136 +1,69 @@
 # frozen_string_literal: true
 
 module TidyBytes
-  # Using a frozen array so we have a O(1) lookup time
-  CP1252_MAP = Array.new(160) do |i|
-    case i
-    when 128 then [226, 130, 172]
-    when 130 then [226, 128, 154]
-    when 131 then [198, 146]
-    when 132 then [226, 128, 158]
-    when 133 then [226, 128, 166]
-    when 134 then [226, 128, 160]
-    when 135 then [226, 128, 161]
-    when 136 then [203, 134]
-    when 137 then [226, 128, 176]
-    when 138 then [197, 160]
-    when 139 then [226, 128, 185]
-    when 140 then [197, 146]
-    when 142 then [197, 189]
-    when 145 then [226, 128, 152]
-    when 146 then [226, 128, 153]
-    when 147 then [226, 128, 156]
-    when 148 then [226, 128, 157]
-    when 149 then [226, 128, 162]
-    when 150 then [226, 128, 147]
-    when 151 then [226, 128, 148]
-    when 152 then [203, 156]
-    when 153 then [226, 132, 162]
-    when 154 then [197, 161]
-    when 155 then [226, 128, 186]
-    when 156 then [197, 147]
-    when 158 then [197, 190]
-    when 159 then [197, 184]
+  # precomputing CP1252 to UTF-8 mappings for bytes 128-159
+  CP1252_MAP = (128..159).map do |byte|
+    case byte
+    when 128 then [226, 130, 172]  # EURO SIGN
+    when 130 then [226, 128, 154]  # SINGLE LOW-9 QUOTATION MARK
+    when 131 then [198, 146]       # LATIN SMALL LETTER F WITH HOOK
+    when 132 then [226, 128, 158]  # DOUBLE LOW-9 QUOTATION MARK
+    when 133 then [226, 128, 166]  # HORIZONTAL ELLIPSIS
+    when 134 then [226, 128, 160]  # DAGGER
+    when 135 then [226, 128, 161]  # DOUBLE DAGGER
+    when 136 then [203, 134]       # MODIFIER LETTER CIRCUMFLEX ACCENT
+    when 137 then [226, 128, 176]  # PER MILLE SIGN
+    when 138 then [197, 160]       # LATIN CAPITAL LETTER S WITH CARON
+    when 139 then [226, 128, 185]  # SINGLE LEFT-POINTING ANGLE QUOTATION MARK
+    when 140 then [197, 146]       # LATIN CAPITAL LIGATURE OE
+    when 142 then [197, 189]       # LATIN CAPITAL LETTER Z WITH CARON
+    when 145 then [226, 128, 152]  # LEFT SINGLE QUOTATION MARK
+    when 146 then [226, 128, 153]  # RIGHT SINGLE QUOTATION MARK
+    when 147 then [226, 128, 156]  # LEFT DOUBLE QUOTATION MARK
+    when 148 then [226, 128, 157]  # RIGHT DOUBLE QUOTATION MARK
+    when 149 then [226, 128, 162]  # BULLET
+    when 150 then [226, 128, 147]  # EN DASH
+    when 151 then [226, 128, 148]  # EM DASH
+    when 152 then [203, 156]       # SMALL TILDE
+    when 153 then [226, 132, 162]  # TRADE MARK SIGN
+    when 154 then [197, 161]       # LATIN SMALL LETTER S WITH CARON
+    when 155 then [226, 128, 186]  # SINGLE RIGHT-POINTING ANGLE QUOTATION MARK
+    when 156 then [197, 147]       # LATIN SMALL LIGATURE OE
+    when 158 then [197, 190]       # LATIN SMALL LETTER Z WITH CARON
+    when 159 then [197, 184]       # LATIN SMALL LETTER Y WITH DIAERESIS
+    end
+  end.freeze
+
+  # precomputing all possible byte conversions 
+  CP1252_TO_UTF8 = Array.new(256) do |b|
+    if (128..159).cover?(b)
+      CP1252_MAP[b - 128]&.pack('C*')
+    elsif b < 128
+      b.chr
+    else
+      b < 192 ? [194, b].pack('C*') : [195, b - 64].pack('C*')
     end
   end.freeze
 
   def self.included(base)
     base.class_eval do
-      private
-
-      def tidy_byte(byte)
-        if byte < 160
-          CP1252_MAP[byte]
-        else
-          byte < 192 ? [194, byte] : [195, byte - 64]
-        end
-      end
-
-      public
-
-    # Attempt to replace invalid UTF-8 bytes with valid ones. This method
-    # naively assumes if you have invalid UTF8 bytes, they are either Windows
-    # CP-1252 or ISO8859-1. In practice this isn't a bad assumption, but may not
-    # always work.
-    #
-    # Passing +true+ will forcibly tidy all bytes, assuming that the string's
-    # encoding is CP-1252 or ISO-8859-1.
-
       def tidy_bytes(force = false)
         return nil if empty?
         
         if force
           buffer = String.new(capacity: bytesize)
-          each_byte do |b|
-            cleaned = tidy_byte(b)
-            buffer << cleaned.pack("C*") if cleaned
-          end
+          each_byte { |b| buffer << CP1252_TO_UTF8[b] }
           return buffer.force_encoding(Encoding::UTF_8)
         end
 
-        buffer = String.new(capacity: bytesize)
-        bytes = each_byte.to_a
-        conts_expected = 0
-        last_lead = 0
-
-        bytes.each_with_index do |byte, i|
-          if byte < 128 # ASCII
-            buffer << byte
-            next
-          end
-
-          if byte > 244 || byte > 240 # invalid bytes
-            cleaned = tidy_byte(byte)
-            buffer << cleaned.pack("C*") if cleaned
-            next
-          end
-
-          is_cont = byte > 127 && byte < 192
-          is_lead = byte > 191 && byte < 245
-
-          if is_cont
-            # Not expecting continuation byte? Clean up. Otherwise, now expect one less.
-            if conts_expected == 0
-              cleaned = tidy_byte(byte)
-              buffer << cleaned.pack("C*") if cleaned
-            else
-              buffer << byte
-              conts_expected -= 1
-            end
-          else
-            if conts_expected > 0
-              # Expected continuation, but got ASCII or leading? Clean backwards up to
-              # the leading byte.
-              (1..(i - last_lead)).each do |j|
-                back_byte = bytes[i - j]
-                cleaned = tidy_byte(back_byte)
-                buffer << cleaned.pack("C*") if cleaned
-              end
-              conts_expected = 0
-            end
-
-            if is_lead
-              # Final byte is leading? Clean it.
-              if i == bytes.length - 1
-                cleaned = tidy_byte(byte)
-                buffer << cleaned.pack("C*") if cleaned
-              else
-                # Valid leading byte? Expect continuations determined by position of
-                # first zero bit, with max of 3.
-                buffer << byte
-                conts_expected = byte < 224 ? 1 : byte < 240 ? 2 : 3
-                last_lead = i
-              end
-            end
-          end
+        begin
+          encode('UTF-8')
+        rescue Encoding::UndefinedConversionError, Encoding::InvalidByteSequenceError
+          buffer = String.new(capacity: bytesize)
+          scrub { |b| CP1252_TO_UTF8[b.ord] }
         end
-
-        buffer.force_encoding(Encoding::UTF_8)
-      rescue
-        nil
       end
 
-      # Tidy bytes in place.
       def tidy_bytes!(force = false)
         result = tidy_bytes(force)
         result ? replace(result) : self
