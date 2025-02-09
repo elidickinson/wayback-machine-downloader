@@ -111,7 +111,7 @@ class WaybackMachineDownloader
 
   include ArchiveAPI
 
-  VERSION = "2.3.2"
+  VERSION = "2.3.3"
   DEFAULT_TIMEOUT = 30
   MAX_RETRIES = 3
   RETRY_DELAY = 2
@@ -426,7 +426,7 @@ class WaybackMachineDownloader
     logger
   end
 
-  def download_with_retry(file_path, file_url, file_timestamp, connection)
+  def download_with_retry(file_path, file_url, file_timestamp, connection, redirect_count = 0)
     retries = 0
     begin
       wayback_url = if @rewritten
@@ -450,9 +450,17 @@ class WaybackMachineDownloader
             file.write(response.body)
           end
         end
+      when Net::HTTPRedirection
+        raise "Too many redirects for #{file_url}" if redirect_count >= 2
+        location = response['location']
+        @logger.warn("Redirect found for #{file_url} -> #{location}")
+        return download_with_retry(file_path, location, file_timestamp, connection, redirect_count + 1)
       when Net::HTTPTooManyRequests
         sleep(RATE_LIMIT * 2)
         raise "Rate limited, retrying..."
+      when Net::HTTPNotFound
+        @logger.warn("File not found, skipping: #{file_url}")
+        return
       else
         raise "HTTP Error: #{response.code} #{response.message}"
       end
