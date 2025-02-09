@@ -10,7 +10,9 @@ module ArchiveAPI
 
     begin
       response = http.get(request_url)
-      json = JSON.parse(response.body)
+      body = response.body.to_s.strip
+      return [] if body.empty?
+      json = JSON.parse(body)
 
       # Check if the response contains the header ["timestamp", "original"]
       json.shift if json.first == ["timestamp", "original"]
