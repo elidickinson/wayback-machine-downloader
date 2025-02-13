@@ -31,6 +31,11 @@ Your files will save to `./websites/example.com/` with their original structure 
    bundle install
    ```
 
+   If you encounter an error like cannot load such file -- concurrent-ruby, manually install the missing gem:
+   ```bash
+   gem install concurrent-ruby
+   ```
+   
 3. **Run it**:
    ```bash
    cd path/to/wayback-machine-downloader/bin
