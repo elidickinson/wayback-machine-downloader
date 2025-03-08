@@ -19,6 +19,16 @@ Your files will save to `./websites/example.com/` with their original structure 
 - Ruby 2.3+ ([download Ruby here](https://www.ruby-lang.org/en/downloads/))
 - Bundler gem (`gem install bundler`)
 
+### Quick start
+It took a while, but we have a gem for this! Install it with:
+```bash
+gem install wayback_machine_downloader_straw
+```
+To run most commands, just like in the original WMD, you can use:
+```bash
+wayback_machine_downloader https://example.com
+```
+
 ### Step-by-step setup
 1. **Install Ruby**:
    ```bash
