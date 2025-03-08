@@ -19,7 +19,7 @@ Your files will save to `./websites/example.com/` with their original structure 
 - Ruby 2.3+ ([download Ruby here](https://www.ruby-lang.org/en/downloads/))
 - Bundler gem (`gem install bundler`)
 
-### Quick start
+### Quick install
 It took a while, but we have a gem for this! Install it with:
 ```bash
 gem install wayback_machine_downloader_straw
