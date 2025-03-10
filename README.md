@@ -1,6 +1,5 @@
 # Wayback Machine Downloader
-
-![version](https://img.shields.io/badge/version-2.3.3-green.svg)
+[![version](https://badge.fury.io/rb/wayback_machine_downloader_straw.svg)](https://rubygems.org/gems/wayback_machine_downloader_straw)
 
 This is a fork of the [Wayback Machine Downloader](https://github.com/hartator/wayback-machine-downloader). With this, you can download a website from the Internet Archive Wayback Machine.
 
