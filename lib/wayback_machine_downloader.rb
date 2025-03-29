@@ -190,24 +190,71 @@ class WaybackMachineDownloader
   end
 
   def get_all_snapshots_to_consider
-    snapshot_list_to_consider = []
+    snapshot_list_to_consider = Concurrent::Array.new
+    mutex = Mutex.new
+    
+    puts "Getting snapshot pages"
 
+    # Fetch the initial set of snapshots, sequentially
     @connection_pool.with_connection do |connection|
-      puts "Getting snapshot pages"
+      initial_list = get_raw_list_from_api(@base_url, nil, connection)
+      mutex.synchronize do
+        snapshot_list_to_consider.concat(initial_list)
+        print "."
+      end
+    end
 
-      # Fetch the initial set of snapshots
-      snapshot_list_to_consider += get_raw_list_from_api(@base_url, nil, connection)
-      print "."
-
-      # Fetch additional pages if the exact URL flag is not set
-      unless @exact_url
-        @maximum_pages.times do |page_index|
-          snapshot_list = get_raw_list_from_api("#{@base_url}/*", page_index, connection)
-          break if snapshot_list.empty?
-
-          snapshot_list_to_consider += snapshot_list
-          print "."
+    # Fetch additional pages if the exact URL flag is not set
+    unless @exact_url
+      page_index = 0
+      batch_size = [@threads_count, 5].min
+      continue_fetching = true
+      
+      while continue_fetching && page_index < @maximum_pages
+        # Determine the range of pages to fetch in this batch
+        end_index = [page_index + batch_size, @maximum_pages].min
+        current_batch = (page_index...end_index).to_a
+        
+        # Create futures for concurrent API calls
+        futures = current_batch.map do |page|
+          Concurrent::Future.execute do
+            result = nil
+            @connection_pool.with_connection do |connection|
+              result = get_raw_list_from_api("#{@base_url}/*", page, connection)
+            end
+            [page, result]
+          end
         end
+        
+        results = []
+        
+        futures.each do |future|
+          begin
+            results << future.value
+          rescue => e
+            puts "\nError fetching page #{future}: #{e.message}"
+          end
+        end
+        
+        # Sort results by page number to maintain order
+        results.sort_by! { |page, _| page }
+        
+        # Process results and check for empty pages
+        results.each do |page, result|
+          if result.empty?
+            continue_fetching = false
+            break
+          else
+            mutex.synchronize do
+              snapshot_list_to_consider.concat(result)
+              print "."
+            end
+          end
+        end
+        
+        page_index = end_index
+        
+        sleep(RATE_LIMIT) if continue_fetching
       end
     end
 
