@@ -1,0 +1,10 @@
+services:
+  wayback_machine_downloader:
+    build:
+        context: .
+    tty: true
+    image: wayback_machine_downloader:latest
+    container_name: wayback_machine_downloader
+    volumes:
+      - .:/build:rw
+      - ./websites:/build/websites:rw
