@@ -9,6 +9,8 @@ require 'json'
 require 'time'
 require 'concurrent-ruby'
 require 'logger'
+require 'zlib'
+require 'stringio'
 require_relative 'wayback_machine_downloader/tidy_bytes'
 require_relative 'wayback_machine_downloader/to_regex'
 require_relative 'wayback_machine_downloader/archive_api'
@@ -478,23 +480,33 @@ class WaybackMachineDownloader
     begin
       wayback_url = if @rewritten
         "https://web.archive.org/web/#{file_timestamp}/#{file_url}"
-      else  
+      else
         "https://web.archive.org/web/#{file_timestamp}id_/#{file_url}"
       end
-      
+
       request = Net::HTTP::Get.new(URI(wayback_url))
       request["Connection"] = "keep-alive"
       request["User-Agent"] = "WaybackMachineDownloader/#{VERSION}"
-      
+      request["Accept-Encoding"] = "gzip, deflate"
+
       response = connection.request(request)
-      
+
       case response
       when Net::HTTPSuccess
         File.open(file_path, "wb") do |file|
-          if block_given?
-            yield(response, file)
+          body = response.body
+          if response['content-encoding'] == 'gzip' && body && !body.empty?
+            begin
+              gz = Zlib::GzipReader.new(StringIO.new(body))
+              decompressed_body = gz.read
+              gz.close
+              file.write(decompressed_body)
+            rescue Zlib::GzipFile::Error => e
+              @logger.warn("Failure decompressing gzip file #{file_url}: #{e.message}")
+              file.write(body)
+            end
           else
-            file.write(response.body)
+            file.write(body) if body
           end
         end
       when Net::HTTPRedirection
