@@ -217,6 +217,29 @@ ruby wayback_machine_downloader https://example.com --list
 ```
 It will just display the files to be downloaded with their snapshot timestamps and urls. The output format is JSON. It won't download anything. It's useful for debugging or to connect to another application.
 
+### Job management
+The downloader automatically saves its progress (`.cdx.json` for snapshot list, `.downloaded.txt` for completed files) in the output directory. If you run the same command again pointing to the same output directory, it will resume where it left off, skipping already downloaded files.
+
+> [!NOTE]
+> Automatic resumption can be affected by changing the URL, mode selection (like `--all-timestamps`), filtering selections, or other options. If you want to ensure a clean start, use the `--reset` option.
+
+| Option | Description |
+|--------|-------------|
+| `--reset` | Delete state files (`.cdx.json`, `.downloaded.txt`) and restart the download from scratch. Does not delete already downloaded website files. |
+| `--keep` | Keep state files (`.cdx.json`, `.downloaded.txt`) even after a successful download. By default, these are deleted upon successful completion. |
+
+**Example** - Restart a download job from the beginning:
+```bash
+ruby wayback_machine_downloader https://example.com --reset
+```
+This is useful if you suspect the state files are corrupted or want to ensure a completely fresh download process without deleting the files you already have.
+
+**Example 2** - Keep state files after download:
+```bash
+ruby wayback_machine_downloader https://example.com --keep
+```
+This can be useful for debugging or if you plan to extend the download later with different parameters (e.g., adding `--to` timestamp) while leveraging the existing snapshot list.
+
 ## 🤝 Contributing
 1. Fork the repository
 2. Create a feature branch

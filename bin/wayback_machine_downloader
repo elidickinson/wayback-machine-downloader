@@ -59,7 +59,15 @@ option_parser = OptionParser.new do |opts|
   end
 
   opts.on("-r", "--rewritten", "Downloads the rewritten Wayback Machine files instead of the original files") do |t|
-    options[:rewritten] = t
+    options[:rewritten] = true
+  end
+
+  opts.on("--reset", "Delete state files (.cdx.json, .downloaded.txt) and restart the download from scratch") do |t|
+    options[:reset] = true
+  end
+
+  opts.on("--keep", "Keep state files (.cdx.json, .downloaded.txt) after a successful download") do |t|
+    options[:keep] = true
   end
 
   opts.on("-v", "--version", "Display version") do |t|
