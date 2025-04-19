@@ -113,7 +113,7 @@ class WaybackMachineDownloader
 
   include ArchiveAPI
 
-  VERSION = "2.3.3"
+  VERSION = "2.3.4"
   DEFAULT_TIMEOUT = 30
   MAX_RETRIES = 3
   RETRY_DELAY = 2
