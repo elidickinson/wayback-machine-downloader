@@ -81,14 +81,15 @@ services:
 
 ## ⚙️ Configuration
 There are a few constants that can be edited in the `wayback_machine_downloader.rb` file for your convenience. The default values may be conservative, so you can adjust them to your needs. They are:
-
 ```ruby
 DEFAULT_TIMEOUT = 30        # HTTP timeout (in seconds)
-MAX_RETRIES = 3             # Failed request retries
-RETRY_DELAY = 2             # Wait between retries
-RATE_LIMIT = 0.25           # Throttle between requests
-CONNECTION_POOL_SIZE = 10   # No. of simultaneous connections
-MEMORY_BUFFER_SIZE = 16384  # Size of download buffer
+MAX_RETRIES = 3             # Number of times to retry failed requests
+RETRY_DELAY = 2             # Wait time between retries (seconds)
+RATE_LIMIT = 0.25           # Throttle between requests (seconds)
+CONNECTION_POOL_SIZE = 10   # Maximum simultaneous connections
+MEMORY_BUFFER_SIZE = 16384  # Download buffer size (bytes)
+STATE_CDX_FILENAME = '.cdx.json'       # Stores snapshot listing
+STATE_DB_FILENAME = '.downloaded.txt'  # Tracks completed downloads
 ```
 
 ## 🛠️ Advanced usage
