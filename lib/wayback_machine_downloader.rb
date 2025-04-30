@@ -538,10 +538,9 @@ class WaybackMachineDownloader
     file_url = file_remote_info[:file_url].encode(current_encoding)
     file_id = file_remote_info[:file_id]
     file_timestamp = file_remote_info[:timestamp]
-    original_file_id = @all_timestamps ? file_id.split('/', 2)[1] : file_id
-    file_path_elements = original_file_id.split('/')
+    file_path_elements = file_id.split('/')
 
-    if original_file_id == ""
+    if file_id == ""
       dir_path = backup_path
       file_path = backup_path + 'index.html'
     elsif file_url[-1] == '/' or not file_path_elements[-1].include? '.'
