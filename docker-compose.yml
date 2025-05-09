@@ -6,7 +6,9 @@ services:
     image: wayback_machine_downloader:latest
     container_name: wayback_machine_downloader
     environment:
-      - ENVIRONMENT=${ENVIRONMENT}
+      - DEVELOPMENT=${DEVELOPMENT:-production}
+      - OPTIONS=${OPTIONS:-""}
+      - TARGET_URL=${TARGET_URL}
     volumes:
       - .:/build:rw
       - ./websites:/build/websites:rw
