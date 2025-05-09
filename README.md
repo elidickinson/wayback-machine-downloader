@@ -101,6 +101,11 @@ Example:
 export OPTIONS="--list -f 20060121"
 ```
 
+After that you can run the exists container with the following command:
+```bash
+docker compose run --rm wayback_machine_downloader https://example.com
+```
+
 ## ⚙️ Configuration
 There are a few constants that can be edited in the `wayback_machine_downloader.rb` file for your convenience. The default values may be conservative, so you can adjust them to your needs. They are:
 
