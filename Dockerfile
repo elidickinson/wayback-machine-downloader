@@ -1,4 +1,4 @@
-FROM ruby:3.1.6-alpine
+FROM ruby:3.4.3-alpine
 USER root
 WORKDIR /build
 COPY . /build
