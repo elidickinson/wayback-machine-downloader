@@ -108,14 +108,15 @@ docker compose run --rm wayback_machine_downloader https://example.com
 
 ## ⚙️ Configuration
 There are a few constants that can be edited in the `wayback_machine_downloader.rb` file for your convenience. The default values may be conservative, so you can adjust them to your needs. They are:
-
 ```ruby
 DEFAULT_TIMEOUT = 30        # HTTP timeout (in seconds)
-MAX_RETRIES = 3             # Failed request retries
-RETRY_DELAY = 2             # Wait between retries
-RATE_LIMIT = 0.25           # Throttle between requests
-CONNECTION_POOL_SIZE = 10   # No. of simultaneous connections
-MEMORY_BUFFER_SIZE = 16384  # Size of download buffer
+MAX_RETRIES = 3             # Number of times to retry failed requests
+RETRY_DELAY = 2             # Wait time between retries (seconds)
+RATE_LIMIT = 0.25           # Throttle between requests (seconds)
+CONNECTION_POOL_SIZE = 10   # Maximum simultaneous connections
+MEMORY_BUFFER_SIZE = 16384  # Download buffer size (bytes)
+STATE_CDX_FILENAME = '.cdx.json'       # Stores snapshot listing
+STATE_DB_FILENAME = '.downloaded.txt'  # Tracks completed downloads
 ```
 
 ## 🛠️ Advanced usage
@@ -243,6 +244,29 @@ By default, Wayback Machine Downloader limits itself to files that responded wit
 ruby wayback_machine_downloader https://example.com --list
 ```
 It will just display the files to be downloaded with their snapshot timestamps and urls. The output format is JSON. It won't download anything. It's useful for debugging or to connect to another application.
+
+### Job management
+The downloader automatically saves its progress (`.cdx.json` for snapshot list, `.downloaded.txt` for completed files) in the output directory. If you run the same command again pointing to the same output directory, it will resume where it left off, skipping already downloaded files.
+
+> [!NOTE]
+> Automatic resumption can be affected by changing the URL, mode selection (like `--all-timestamps`), filtering selections, or other options. If you want to ensure a clean start, use the `--reset` option.
+
+| Option | Description |
+|--------|-------------|
+| `--reset` | Delete state files (`.cdx.json`, `.downloaded.txt`) and restart the download from scratch. Does not delete already downloaded website files. |
+| `--keep` | Keep state files (`.cdx.json`, `.downloaded.txt`) even after a successful download. By default, these are deleted upon successful completion. |
+
+**Example** - Restart a download job from the beginning:
+```bash
+ruby wayback_machine_downloader https://example.com --reset
+```
+This is useful if you suspect the state files are corrupted or want to ensure a completely fresh download process without deleting the files you already have.
+
+**Example 2** - Keep state files after download:
+```bash
+ruby wayback_machine_downloader https://example.com --keep
+```
+This can be useful for debugging or if you plan to extend the download later with different parameters (e.g., adding `--to` timestamp) while leveraging the existing snapshot list.
 
 ## 🤝 Contributing
 1. Fork the repository

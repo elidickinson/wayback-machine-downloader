@@ -4,7 +4,7 @@ require 'uri'
 module ArchiveAPI
 
   def get_raw_list_from_api(url, page_index, http)
-    request_url = URI("https://web.archive.org/cdx/search/xd")
+    request_url = URI("https://web.archive.org/cdx/search/cdx")
     params = [["output", "json"], ["url", url]] + parameters_for_api(page_index)
     request_url.query = URI.encode_www_form(params)
 
