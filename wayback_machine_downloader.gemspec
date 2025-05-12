@@ -1,8 +1,6 @@
-require './lib/wayback_machine_downloader'
-
 Gem::Specification.new do |s|
   s.name        = "wayback_machine_downloader_straw"
-  s.version     = WaybackMachineDownloader::VERSION
+  s.version     = "2.3.5"
   s.executables << "wayback_machine_downloader"
   s.summary     = "Download an entire website from the Wayback Machine."
   s.description = "Download complete websites from the Internet Archive's Wayback Machine. While the Wayback Machine (archive.org) excellently preserves web history, it lacks a built-in export functionality; this gem does just that, allowing you to download entire archived websites. (This is a significant rewrite of the original wayback_machine_downloader gem by hartator, with enhanced features and performance improvements.)"
@@ -11,7 +9,7 @@ Gem::Specification.new do |s|
   s.files       = ["lib/wayback_machine_downloader.rb", "lib/wayback_machine_downloader/tidy_bytes.rb", "lib/wayback_machine_downloader/to_regex.rb", "lib/wayback_machine_downloader/archive_api.rb"]
   s.homepage    = "https://github.com/StrawberryMaster/wayback-machine-downloader"
   s.license     = "MIT"
-  s.required_ruby_version = ">= 1.9.2"
+  s.required_ruby_version = ">= 3.4.3"
   s.add_runtime_dependency "concurrent-ruby", "~> 1.3", ">= 1.3.4"
   s.add_development_dependency "rake", "~> 12.2"
   s.add_development_dependency "minitest", "~> 5.2"

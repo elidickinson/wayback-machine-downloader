@@ -6,10 +6,10 @@ services:
     image: wayback_machine_downloader:latest
     container_name: wayback_machine_downloader
     environment:
-      - DEVELOPMENT=${DEVELOPMENT:-production}
+      - ENVIRONMENT=${DEVELOPMENT:-production}
       - OPTIONS=${OPTIONS:-""}
       - TARGET_URL=${TARGET_URL}
     volumes:
       - .:/build:rw
-      - ./websites:/build/websites:rw
-    command: --directory /build/websites ${OPTIONS} ${TARGET_URL}
+      - ./websites:/websites:rw
+    command: /build/bin/wayback_machine_downloader ${TARGET_URL} ${OPTIONS}

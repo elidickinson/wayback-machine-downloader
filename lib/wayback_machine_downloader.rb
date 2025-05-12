@@ -567,7 +567,7 @@ class WaybackMachineDownloader
       "#{file_url} -> #{file_path} (#{@processed_file_count + 1}/#{@total_to_download})"
     rescue StandardError => e
       msg = "Failed: #{file_url} # #{e} (#{@processed_file_count + 1}/#{@total_to_download})"
-      if not @all and File.exist?(file_path) and File.size(file_path) == 0
+      if File.exist?(file_path) and File.size(file_path) == 0
         File.delete(file_path)
         msg += "\n#{file_path} was empty and was removed."
       end
