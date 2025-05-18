@@ -125,7 +125,7 @@ class WaybackMachineDownloader
 
   attr_accessor :base_url, :exact_url, :directory, :all_timestamps,
     :from_timestamp, :to_timestamp, :only_filter, :exclude_filter,
-    :all, :maximum_pages, :threads_count, :logger, :reset, :keep
+    :all, :maximum_pages, :threads_count, :logger, :reset, :keep, :rewrite
 
   def initialize params
     validate_params(params)
@@ -148,6 +148,7 @@ class WaybackMachineDownloader
     @failed_downloads = Concurrent::Array.new
     @connection_pool = ConnectionPool.new(CONNECTION_POOL_SIZE)
     @db_mutex = Mutex.new
+    @rewrite = params[:rewrite] || false
 
     handle_reset
   end
@@ -533,6 +534,101 @@ class WaybackMachineDownloader
     end
   end
 
+  def rewrite_urls_to_relative(file_path)
+    return unless File.exist?(file_path)
+    
+    file_ext = File.extname(file_path).downcase
+    
+    begin
+      content = File.binread(file_path)
+
+      if file_ext == '.html' || file_ext == '.htm'
+        encoding = content.match(/<meta\s+charset=["']?([^"'>]+)/i)&.captures&.first || 'UTF-8'
+        content.force_encoding(encoding) rescue content.force_encoding('UTF-8')
+      else
+        content.force_encoding('UTF-8')
+      end
+
+      # URLs in HTML attributes
+      content.gsub!(/(\s(?:href|src|action|data-src|data-url)=["'])https?:\/\/web\.archive\.org\/web\/[0-9]+(?:id_)?\/([^"']+)(["'])/i) do
+        prefix, url, suffix = $1, $2, $3
+        
+        if url.start_with?('http')
+          begin
+            uri = URI.parse(url)
+            path = uri.path
+            path = path[1..-1] if path.start_with?('/')
+            "#{prefix}#{path}#{suffix}"
+          rescue
+            "#{prefix}#{url}#{suffix}"
+          end
+        elsif url.start_with?('/')
+          "#{prefix}./#{url[1..-1]}#{suffix}"
+        else
+          "#{prefix}#{url}#{suffix}"
+        end
+      end
+      
+      # URLs in CSS
+      content.gsub!(/url\(\s*["']?https?:\/\/web\.archive\.org\/web\/[0-9]+(?:id_)?\/([^"'\)]+)["']?\s*\)/i) do
+        url = $1
+        
+        if url.start_with?('http')
+          begin
+            uri = URI.parse(url)
+            path = uri.path
+            path = path[1..-1] if path.start_with?('/')
+            "url(\"#{path}\")"
+          rescue
+            "url(\"#{url}\")"
+          end
+        elsif url.start_with?('/')
+          "url(\"./#{url[1..-1]}\")"
+        else
+          "url(\"#{url}\")"
+        end
+      end
+      
+      # URLs in JavaScript
+      content.gsub!(/(["'])https?:\/\/web\.archive\.org\/web\/[0-9]+(?:id_)?\/([^"']+)(["'])/i) do
+        quote_start, url, quote_end = $1, $2, $3
+        
+        if url.start_with?('http')
+          begin
+            uri = URI.parse(url)
+            path = uri.path
+            path = path[1..-1] if path.start_with?('/')
+            "#{quote_start}#{path}#{quote_end}"
+          rescue
+            "#{quote_start}#{url}#{quote_end}"
+          end
+        elsif url.start_with?('/')
+          "#{quote_start}./#{url[1..-1]}#{quote_end}"
+        else
+          "#{quote_start}#{url}#{quote_end}"
+        end
+      end
+      
+      # for URLs in HTML attributes that start with a single slash
+      content.gsub!(/(\s(?:href|src|action|data-src|data-url)=["'])\/([^"'\/][^"']*)(["'])/i) do
+        prefix, path, suffix = $1, $2, $3
+        "#{prefix}./#{path}#{suffix}"
+      end
+      
+      # for URLs in CSS that start with a single slash
+      content.gsub!(/url\(\s*["']?\/([^"'\)\/][^"'\)]*?)["']?\s*\)/i) do
+        path = $1
+        "url(\"./#{path}\")"
+      end
+
+      # save the modified content back to the file
+      File.binwrite(file_path, content)
+      puts "Rewrote URLs in #{file_path} to be relative."
+    rescue Errno::ENOENT => e
+      @logger.warn("Error reading file #{file_path}: #{e.message}")
+    end
+  end
+
   def download_file (file_remote_info, http)
     current_encoding = "".encoding
     file_url = file_remote_info[:file_url].encode(current_encoding)
@@ -564,6 +660,9 @@ class WaybackMachineDownloader
     begin
       structure_dir_path dir_path
       download_with_retry(file_path, file_url, file_timestamp, http)
+      if @rewrite && File.extname(file_path) =~ /\.(html?|css|js)$/i
+        rewrite_urls_to_relative(file_path)
+      end
       "#{file_url} -> #{file_path} (#{@processed_file_count + 1}/#{@total_to_download})"
     rescue StandardError => e
       msg = "Failed: #{file_url} # #{e} (#{@processed_file_count + 1}/#{@total_to_download})"

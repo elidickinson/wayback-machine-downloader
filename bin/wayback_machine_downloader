@@ -62,6 +62,10 @@ option_parser = OptionParser.new do |opts|
     options[:rewritten] = true
   end
 
+  opts.on("--local", "Rewrite URLs to make them relative for local browsing") do |t|
+    options[:rewrite] = true
+  end
+
   opts.on("--reset", "Delete state files (.cdx.json, .downloaded.txt) and restart the download from scratch") do |t|
     options[:reset] = true
   end
