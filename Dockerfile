@@ -5,8 +5,9 @@ WORKDIR /build
 COPY Gemfile /build/
 COPY *.gemspec /build/
 
-RUN bundle config set jobs $(nproc) \
-    && bundle install --without development test
+RUN bundle config set jobs "$(nproc)" \
+    && bundle config set without 'development test' \
+    && bundle install
 
 COPY . /build
 
