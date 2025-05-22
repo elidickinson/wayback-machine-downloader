@@ -1,13 +1,12 @@
-FROM ruby:3.4.3-alpine
+FROM ruby:3.4.4-alpine
 USER root
 WORKDIR /build
 
 COPY Gemfile /build/
 COPY *.gemspec /build/
 
-RUN gem update \
-    && bundle config set jobs $(nproc) \
-    && bundle install
+RUN bundle config set jobs $(nproc) \
+    && bundle install --without development test
 
 COPY . /build
 
