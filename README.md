@@ -186,6 +186,8 @@ Useful if you want to download the rewritten files from the Wayback Machine inst
 |--------|-------------|
 | `-o FILTER`, `--only FILTER` | Only download matching URLs (supports regex) |
 | `-x FILTER`, `--exclude FILTER` | Exclude matching URLs |
+| `--ignore-url-params` | Ignore all URL parameters when deduplicating files |
+| `--ignore-url-params-except PARAMS` | Ignore URL parameters except specified ones (comma-separated) |
 
 **Example** - Include only images:
 ```bash
@@ -215,6 +217,18 @@ Or if you want to download everything except images:
 ruby wayback_machine_downloader https://example.com --exclude "/\.(gif|jpg|jpeg)$/i"
 ```
 
+**Example 3** - Ignore all URL parameters:
+```bash
+ruby wayback_machine_downloader https://example.com --ignore-url-params
+```
+When downloading a website, you may encounter many duplicate files that differ only in their URL parameters (e.g., `page.php?utm_source=social` and `page.php?utm_source=ad`). This option treats all URLs with the same path as identical, downloading only one version and ignoring the parameters.
+
+**Example 4** - Ignore URL parameters except specific ones:
+```bash
+ruby wayback_machine_downloader https://example.com --ignore-url-params-except page,sort
+```
+Similar to `--ignore-url-params`, but preserves specified parameters. In this example, `page.php?page=1&sort=asc&session=123` would be treated as `page.php?page=1&sort=asc`, keeping only the `page` and `sort` parameters.
+
 ### Performance
 | Option | Description |
 |--------|-------------|
@@ -229,7 +243,7 @@ Will specify the number of multiple files you want to download at the same time.
 
 **Example 2** - 300 snapshot pages:
 ```bash
-ruby wayback_machine_downloader https://example.com --snapshot-pages 300    
+ruby wayback_machine_downloader https://example.com --snapshot-pages 300
 ```
 Will specify the maximum number of snapshot pages to consider. Count an average of 150,000 snapshots per page. 100 is the default maximum number of snapshot pages and should be sufficient for most websites. Use a bigger number if you want to download a very large website.
 

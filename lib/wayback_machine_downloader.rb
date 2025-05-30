@@ -325,40 +325,53 @@ class WaybackMachineDownloader
   end
 
   def normalize_url(url)
+    # Always remove trailing ? if there's no query string
+    if url.end_with?('?')
+      url = url[0..-2]
+    end
+    
     return url unless @ignore_url_params || !@ignore_url_params_except.empty?
     
-    begin
-      uri = URI.parse(url)
-      return url unless uri.query
+    # Split URL into base and query parts
+    parts = url.split('?', 2)
+    base_url = parts[0]
+    query_string = parts[1]
+    
+    # If no query string or empty query string, return base URL
+    return base_url if query_string.nil? || query_string.empty?
+    
+    if @ignore_url_params
+      # Remove all query parameters, just return base URL
+      return base_url
+    elsif !@ignore_url_params_except.empty? && query_string
+      # Parse query parameters manually
+      params = {}
+      query_string.split('&').each do |param|
+        key_value = param.split('=', 2)
+        key = key_value[0]
+        value = key_value[1] || ''
+        params[key] ||= []
+        params[key] << value
+      end
       
-      if @ignore_url_params
-        # Remove all query parameters
-        uri.query = nil
-      elsif !@ignore_url_params_except.empty?
-        # Keep only specified parameters
-        params = CGI::parse(uri.query)
-        preserved_params = {}
-        
-        @ignore_url_params_except.each do |param_name|
-          if params.has_key?(param_name)
-            preserved_params[param_name] = params[param_name]
-          end
-        end
-        
-        if preserved_params.empty?
-          uri.query = nil
-        else
-          # Sort parameters for consistent ordering
-          uri.query = URI.encode_www_form(preserved_params.sort.map { |k, v| [k, v.first] })
+      # Keep only specified parameters
+      preserved_params = {}
+      @ignore_url_params_except.each do |param_name|
+        if params.has_key?(param_name)
+          preserved_params[param_name] = params[param_name].first
         end
       end
       
-      uri.to_s
-    rescue URI::InvalidURIError => e
-      # If we can't parse the URL, return it unchanged
-      @logger.warn "Could not parse URL for normalization: #{url}" if @logger
-      url
+      if preserved_params.empty?
+        return base_url
+      else
+        # Sort parameters for consistent ordering
+        sorted_params = preserved_params.sort.map { |k, v| "#{k}=#{v}" }.join('&')
+        return "#{base_url}?#{sorted_params}"
+      end
     end
+    
+    url
   end
 
   def get_file_list_curated
@@ -366,10 +379,10 @@ class WaybackMachineDownloader
     get_all_snapshots_to_consider.each do |file_timestamp, file_url|
       next unless file_url.include?('/')
       file_id = file_url.split('/')[3..-1].join('/')
+      # Normalize the URL to handle query parameters BEFORE unescaping
+      file_id = normalize_url(file_id) if file_id
       file_id = CGI::unescape file_id
       file_id = file_id.tidy_bytes unless file_id == ""
-      # Normalize the URL to handle query parameters
-      file_id = normalize_url(file_id) if file_id
       if file_id.nil?
         puts "Malformed file url, ignoring: #{file_url}"
       else
@@ -394,8 +407,9 @@ class WaybackMachineDownloader
     get_all_snapshots_to_consider.each do |file_timestamp, file_url|
       next unless file_url.include?('/')
       file_id = file_url.split('/')[3..-1].join('/')
-      # Normalize the URL to handle query parameters before creating composite key
-      normalized_file_id = normalize_url(CGI::unescape(file_id))
+      # Normalize the URL to handle query parameters BEFORE unescaping
+      normalized_file_id = normalize_url(file_id)
+      normalized_file_id = CGI::unescape(normalized_file_id)
       file_id_and_timestamp = [file_timestamp, normalized_file_id].join('/')
       file_id_and_timestamp = file_id_and_timestamp.tidy_bytes unless file_id_and_timestamp == ""
       if file_id.nil?

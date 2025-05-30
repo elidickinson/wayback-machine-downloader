@@ -21,7 +21,7 @@ option_parser = OptionParser.new do |opts|
   opts.on("-s", "--all-timestamps", "Download all snapshots/timestamps for a given website") do |t|
     options[:all_timestamps] = true
   end
-  
+
   opts.on("-f", "--from TIMESTAMP", Integer, "Only files on or after timestamp supplied (ie. 20060716231334)") do |t|
     options[:from_timestamp] = t
   end
@@ -74,7 +74,7 @@ option_parser = OptionParser.new do |opts|
     options[:keep] = true
   end
 
-  opts.on("--ignore-url-params", "Ignore all URL parameters when deduplicating files") do |t|
+  opts.on("--ignore-url-params", "Ignore all URL parameters when deduplicating files", "Downloads only one version of URLs that differ only in parameters") do |t|
     options[:ignore_url_params] = true
   end
 
@@ -86,6 +86,15 @@ option_parser = OptionParser.new do |opts|
     options[:version] = t
   end
 end.parse!
+
+# Validate mutually exclusive options
+if options[:ignore_url_params] && options[:ignore_url_params_except]
+  puts "Error: --ignore-url-params and --ignore-url-params-except cannot be used together."
+  puts "Choose one option:"
+  puts "  --ignore-url-params        : Ignore all URL parameters"
+  puts "  --ignore-url-params-except : Ignore all URL parameters except specified ones"
+  exit 1
+end
 
 if (base_url = ARGV[-1])
   options[:base_url] = base_url
