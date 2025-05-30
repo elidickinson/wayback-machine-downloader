@@ -74,6 +74,14 @@ option_parser = OptionParser.new do |opts|
     options[:keep] = true
   end
 
+  opts.on("--ignore-url-params", "Ignore all URL parameters when deduplicating files") do |t|
+    options[:ignore_url_params] = true
+  end
+
+  opts.on("--ignore-url-params-except PARAMS", String, "Ignore URL parameters except the ones specified (comma-separated)", "Example: --ignore-url-params-except page,sort") do |t|
+    options[:ignore_url_params_except] = t.split(',').map(&:strip)
+  end
+
   opts.on("-v", "--version", "Display version") do |t|
     options[:version] = t
   end

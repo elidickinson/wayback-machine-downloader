@@ -11,6 +11,7 @@ require 'concurrent-ruby'
 require 'logger'
 require 'zlib'
 require 'stringio'
+require 'uri'
 require_relative 'wayback_machine_downloader/tidy_bytes'
 require_relative 'wayback_machine_downloader/to_regex'
 require_relative 'wayback_machine_downloader/archive_api'
@@ -125,7 +126,8 @@ class WaybackMachineDownloader
 
   attr_accessor :base_url, :exact_url, :directory, :all_timestamps,
     :from_timestamp, :to_timestamp, :only_filter, :exclude_filter,
-    :all, :maximum_pages, :threads_count, :logger, :reset, :keep, :rewrite
+    :all, :maximum_pages, :threads_count, :logger, :reset, :keep, :rewrite,
+    :ignore_url_params, :ignore_url_params_except
 
   def initialize params
     validate_params(params)
@@ -149,6 +151,8 @@ class WaybackMachineDownloader
     @connection_pool = ConnectionPool.new(CONNECTION_POOL_SIZE)
     @db_mutex = Mutex.new
     @rewrite = params[:rewrite] || false
+    @ignore_url_params = params[:ignore_url_params] || false
+    @ignore_url_params_except = params[:ignore_url_params_except] || []
 
     handle_reset
   end
@@ -320,6 +324,43 @@ class WaybackMachineDownloader
     snapshot_list_to_consider
   end
 
+  def normalize_url(url)
+    return url unless @ignore_url_params || !@ignore_url_params_except.empty?
+    
+    begin
+      uri = URI.parse(url)
+      return url unless uri.query
+      
+      if @ignore_url_params
+        # Remove all query parameters
+        uri.query = nil
+      elsif !@ignore_url_params_except.empty?
+        # Keep only specified parameters
+        params = CGI::parse(uri.query)
+        preserved_params = {}
+        
+        @ignore_url_params_except.each do |param_name|
+          if params.has_key?(param_name)
+            preserved_params[param_name] = params[param_name]
+          end
+        end
+        
+        if preserved_params.empty?
+          uri.query = nil
+        else
+          # Sort parameters for consistent ordering
+          uri.query = URI.encode_www_form(preserved_params.sort.map { |k, v| [k, v.first] })
+        end
+      end
+      
+      uri.to_s
+    rescue URI::InvalidURIError => e
+      # If we can't parse the URL, return it unchanged
+      @logger.warn "Could not parse URL for normalization: #{url}" if @logger
+      url
+    end
+  end
+
   def get_file_list_curated
     file_list_curated = Hash.new
     get_all_snapshots_to_consider.each do |file_timestamp, file_url|
@@ -327,6 +368,8 @@ class WaybackMachineDownloader
       file_id = file_url.split('/')[3..-1].join('/')
       file_id = CGI::unescape file_id
       file_id = file_id.tidy_bytes unless file_id == ""
+      # Normalize the URL to handle query parameters
+      file_id = normalize_url(file_id) if file_id
       if file_id.nil?
         puts "Malformed file url, ignoring: #{file_url}"
       else
@@ -351,8 +394,9 @@ class WaybackMachineDownloader
     get_all_snapshots_to_consider.each do |file_timestamp, file_url|
       next unless file_url.include?('/')
       file_id = file_url.split('/')[3..-1].join('/')
-      file_id_and_timestamp = [file_timestamp, file_id].join('/')
-      file_id_and_timestamp = CGI::unescape file_id_and_timestamp
+      # Normalize the URL to handle query parameters before creating composite key
+      normalized_file_id = normalize_url(CGI::unescape(file_id))
+      file_id_and_timestamp = [file_timestamp, normalized_file_id].join('/')
       file_id_and_timestamp = file_id_and_timestamp.tidy_bytes unless file_id_and_timestamp == ""
       if file_id.nil?
         puts "Malformed file url, ignoring: #{file_url}"
