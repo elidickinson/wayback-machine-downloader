@@ -154,10 +154,12 @@ class WaybackMachineDownloader
   end
 
   def backup_name
-    if @base_url.include? '//'
-      @base_url.split('/')[2]
+    url_to_process = @base_url.end_with?('/*') ? @base_url.chomp('/*') : @base_url
+    
+    if url_to_process.include? '//'
+      url_to_process.split('/')[2]
     else
-      @base_url
+      url_to_process
     end
   end
 
