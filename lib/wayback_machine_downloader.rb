@@ -241,6 +241,7 @@ class WaybackMachineDownloader
     # Fetch the initial set of snapshots, sequentially
     @connection_pool.with_connection do |connection|
       initial_list = get_raw_list_from_api(@base_url, nil, connection)
+      initial_list ||= []
       mutex.synchronize do
         snapshot_list_to_consider.concat(initial_list)
         print "."
@@ -265,6 +266,7 @@ class WaybackMachineDownloader
             @connection_pool.with_connection do |connection|
               result = get_raw_list_from_api("#{@base_url}/*", page, connection)
             end
+            result ||= []
             [page, result]
           end
         end
@@ -284,7 +286,7 @@ class WaybackMachineDownloader
 
         # Process results and check for empty pages
         results.each do |page, result|
-          if result.empty?
+          if result.nil? || result.empty?
             continue_fetching = false
             break
           else
