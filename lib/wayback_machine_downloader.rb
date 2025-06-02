@@ -159,7 +159,7 @@ class WaybackMachineDownloader
 
   def backup_name
     url_to_process = @base_url.end_with?('/*') ? @base_url.chomp('/*') : @base_url
-    
+
     if url_to_process.include? '//'
       url_to_process.split('/')[2]
     else
@@ -329,17 +329,17 @@ class WaybackMachineDownloader
     if url.end_with?('?')
       url = url[0..-2]
     end
-    
+
     return url unless @ignore_url_params || !@ignore_url_params_except.empty?
-    
+
     # Split URL into base and query parts
     parts = url.split('?', 2)
     base_url = parts[0]
     query_string = parts[1]
-    
-    # If no query string or empty query string, return base URL
-    return base_url if query_string.nil? || query_string.empty?
-    
+
+    # If no query string or empty query string, return original URL
+    return url if query_string.nil? || query_string.empty?
+
     if @ignore_url_params
       # Remove all query parameters, just return base URL
       return base_url
@@ -353,7 +353,7 @@ class WaybackMachineDownloader
         params[key] ||= []
         params[key] << value
       end
-      
+
       # Keep only specified parameters
       preserved_params = {}
       @ignore_url_params_except.each do |param_name|
@@ -361,7 +361,7 @@ class WaybackMachineDownloader
           preserved_params[param_name] = params[param_name].first
         end
       end
-      
+
       if preserved_params.empty?
         return base_url
       else
@@ -370,33 +370,30 @@ class WaybackMachineDownloader
         return "#{base_url}?#{sorted_params}"
       end
     end
-    
+
     url
   end
 
   def get_file_list_curated
     file_list_curated = Hash.new
     get_all_snapshots_to_consider.each do |file_timestamp, file_url|
+      print file_url + "\n"
       next unless file_url.include?('/')
-      file_id = file_url.split('/')[3..-1].join('/')
+      file_id = file_url.split('/')[3..-1].join('/')  # Extract path segments after the 3rd slash (domain parts)
       # Normalize the URL to handle query parameters BEFORE unescaping
-      file_id = normalize_url(file_id) if file_id
-      file_id = CGI::unescape file_id
-      file_id = file_id.tidy_bytes unless file_id == ""
-      if file_id.nil?
-        puts "Malformed file url, ignoring: #{file_url}"
-      else
-        if match_exclude_filter(file_url)
-          puts "File url matches exclude filter, ignoring: #{file_url}"
-        elsif not match_only_filter(file_url)
-          puts "File url doesn't match only filter, ignoring: #{file_url}"
-        elsif file_list_curated[file_id]
-          unless file_list_curated[file_id][:timestamp] > file_timestamp
-            file_list_curated[file_id] = {file_url: file_url, timestamp: file_timestamp}
-          end
-        else
+      file_id = normalize_url(file_id)  # Process URL parameters based on ignore_url_params settings
+      file_id = CGI::unescape(file_id)  # Decode URL-encoded characters (%20 to space, etc)
+      file_id = file_id.tidy_bytes unless file_id.empty?  # Clean up any invalid byte sequences unless empty string
+      if match_exclude_filter(file_url)
+        puts "File url matches exclude filter, ignoring: #{file_url}"
+      elsif not match_only_filter(file_url)
+        puts "File url doesn't match only filter, ignoring: #{file_url}"
+      elsif file_list_curated[file_id]
+        unless file_list_curated[file_id][:timestamp] > file_timestamp
           file_list_curated[file_id] = {file_url: file_url, timestamp: file_timestamp}
         end
+      else
+        file_list_curated[file_id] = {file_url: file_url, timestamp: file_timestamp}
       end
     end
     file_list_curated
@@ -598,9 +595,9 @@ class WaybackMachineDownloader
 
   def rewrite_urls_to_relative(file_path)
     return unless File.exist?(file_path)
-    
+
     file_ext = File.extname(file_path).downcase
-    
+
     begin
       content = File.binread(file_path)
 
@@ -614,7 +611,7 @@ class WaybackMachineDownloader
       # URLs in HTML attributes
       content.gsub!(/(\s(?:href|src|action|data-src|data-url)=["'])https?:\/\/web\.archive\.org\/web\/[0-9]+(?:id_)?\/([^"']+)(["'])/i) do
         prefix, url, suffix = $1, $2, $3
-        
+
         if url.start_with?('http')
           begin
             uri = URI.parse(url)
@@ -630,11 +627,11 @@ class WaybackMachineDownloader
           "#{prefix}#{url}#{suffix}"
         end
       end
-      
+
       # URLs in CSS
       content.gsub!(/url\(\s*["']?https?:\/\/web\.archive\.org\/web\/[0-9]+(?:id_)?\/([^"'\)]+)["']?\s*\)/i) do
         url = $1
-        
+
         if url.start_with?('http')
           begin
             uri = URI.parse(url)
@@ -650,11 +647,11 @@ class WaybackMachineDownloader
           "url(\"#{url}\")"
         end
       end
-      
+
       # URLs in JavaScript
       content.gsub!(/(["'])https?:\/\/web\.archive\.org\/web\/[0-9]+(?:id_)?\/([^"']+)(["'])/i) do
         quote_start, url, quote_end = $1, $2, $3
-        
+
         if url.start_with?('http')
           begin
             uri = URI.parse(url)
@@ -670,13 +667,13 @@ class WaybackMachineDownloader
           "#{quote_start}#{url}#{quote_end}"
         end
       end
-      
+
       # for URLs in HTML attributes that start with a single slash
       content.gsub!(/(\s(?:href|src|action|data-src|data-url)=["'])\/([^"'\/][^"']*)(["'])/i) do
         prefix, path, suffix = $1, $2, $3
         "#{prefix}./#{path}#{suffix}"
       end
-      
+
       # for URLs in CSS that start with a single slash
       content.gsub!(/url\(\s*["']?\/([^"'\)\/][^"'\)]*?)["']?\s*\)/i) do
         path = $1
