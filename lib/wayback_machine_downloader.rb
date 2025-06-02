@@ -533,13 +533,15 @@ class WaybackMachineDownloader
     files_to_process.each do |file_remote_info|
       pool.post do
         download_success = false
+        download_attempted = false
         begin
           @connection_pool.with_connection do |connection|
-            result_message = download_file(file_remote_info, connection)
-            # assume download success if the result message contains ' -> '
-            if result_message && result_message.include?(' -> ')
-               download_success = true
-            end
+            status, result_message = download_file(file_remote_info, connection)
+            # check if download was successful
+            download_success = (status == :downloaded)
+            # check if we actually attempted a download (not already_exists or skipped)
+            download_attempted = (status == :downloaded || status == :failed)
+            
             @download_mutex.synchronize do
               @processed_file_count += 1
               # adjust progress message to reflect remaining files
@@ -547,17 +549,19 @@ class WaybackMachineDownloader
               puts progress_message if progress_message
             end
           end
-          # sppend to DB only after successful download outside the connection block
+          # append to DB only after successful download outside the connection block
           if download_success
             append_to_db(file_remote_info[:file_id])
           end
         rescue => e
           @logger.error("Error processing file #{file_remote_info[:file_url]}: #{e.message}")
-           @download_mutex.synchronize do
-              @processed_file_count += 1
-           end
+          download_attempted = true  # consider errors as download attempts
+          @download_mutex.synchronize do
+            @processed_file_count += 1
+          end
         end
-        sleep(RATE_LIMIT)
+        # Only apply rate limiting if we actually attempted a download
+        sleep(RATE_LIMIT) if download_attempted
       end
     end
 
@@ -713,7 +717,7 @@ class WaybackMachineDownloader
     # check existence *before* download attempt
     # this handles cases where a file was created manually or by a previous partial run without a .db entry
     if File.exist? file_path
-       return "#{file_url} # #{file_path} already exists. (#{@processed_file_count + 1}/#{@total_to_download})"
+       return [:already_exists, "#{file_url} # #{file_path} already exists. (#{@processed_file_count + 1}/#{@total_to_download})"]
     end
 
     begin
@@ -725,13 +729,13 @@ class WaybackMachineDownloader
         if @rewrite && File.extname(file_path) =~ /\.(html?|css|js)$/i
           rewrite_urls_to_relative(file_path)
         end
-        "#{file_url} -> #{file_path} (#{@processed_file_count + 1}/#{@total_to_download})"
+        [:downloaded, "#{file_url} -> #{file_path} (#{@processed_file_count + 1}/#{@total_to_download})"]
       when :skipped_not_found
-        "Skipped (not found): #{file_url} (#{@processed_file_count + 1}/#{@total_to_download})"
+        [:skipped, "Skipped (not found): #{file_url} (#{@processed_file_count + 1}/#{@total_to_download})"]
       else
         # ideally, this case should not be reached if download_with_retry behaves as expected.
         @logger.warn("Unknown status from download_with_retry for #{file_url}: #{status}")
-        "Unknown status for #{file_url}: #{status} (#{@processed_file_count + 1}/#{@total_to_download})"
+        [:unknown, "Unknown status for #{file_url}: #{status} (#{@processed_file_count + 1}/#{@total_to_download})"]
       end
     rescue StandardError => e
       msg = "Failed: #{file_url} # #{e} (#{@processed_file_count + 1}/#{@total_to_download})"
@@ -739,7 +743,7 @@ class WaybackMachineDownloader
         File.delete(file_path)
         msg += "\n#{file_path} was empty and was removed."
       end
-      msg
+      [:failed, msg]
     end
   end
 
