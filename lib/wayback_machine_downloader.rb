@@ -721,6 +721,9 @@ class WaybackMachineDownloader
         "https://web.archive.org/web/#{file_timestamp}id_/#{file_url}"
       end
 
+      # Escape square brackets because they are not valid in URI()
+      wayback_url = wayback_url.gsub('[', '%5B').gsub(']', '%5D')
+
       request = Net::HTTP::Get.new(URI(wayback_url))
       request["Connection"] = "keep-alive"
       request["User-Agent"] = "WaybackMachineDownloader/#{VERSION}"
