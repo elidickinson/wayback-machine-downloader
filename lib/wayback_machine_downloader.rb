@@ -131,7 +131,11 @@ class WaybackMachineDownloader
     validate_params(params)
     @base_url = params[:base_url]
     @exact_url = params[:exact_url]
-    @directory = params[:directory]
+    if params[:directory]
+      @directory = File.expand_path(params[:directory])
+    else
+      @directory = nil
+    end
     @all_timestamps = params[:all_timestamps]
     @from_timestamp = params[:from_timestamp].to_i
     @to_timestamp = params[:to_timestamp].to_i
@@ -165,13 +169,11 @@ class WaybackMachineDownloader
 
   def backup_path
     if @directory
-      if @directory[-1] == '/'
-        @directory
-      else
-        @directory + '/'
-      end
+      # because @directory is already an absolute path, we just ensure it exists
+      @directory
     else
-      'websites/' + backup_name + '/'
+      # ensure the default path is absolute and normalized
+      File.expand_path(File.join('websites', backup_name))
     end
   end
 
@@ -638,21 +640,35 @@ class WaybackMachineDownloader
     file_url = file_remote_info[:file_url].encode(current_encoding)
     file_id = file_remote_info[:file_id]
     file_timestamp = file_remote_info[:timestamp]
-    file_path_elements = file_id.split('/')
+    
+    # sanitize file_id to ensure it is a valid path component
+    raw_path_elements = file_id.split('/')
+
+    sanitized_path_elements = raw_path_elements.map do |element|
+      if Gem.win_platform?
+        # for Windows, we need to sanitize path components to avoid invalid characters
+        # this prevents issues with file names that contain characters not allowed in
+        # Windows file systems. See # https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+        element.gsub(/[:\*?"<>\|\&\=\/\\]/, ->(match) { '%' + match.ord.to_s(16).upcase })
+      else
+        element
+      end
+    end
+    
+    current_backup_path = backup_path
 
     if file_id == ""
-      dir_path = backup_path
-      file_path = backup_path + 'index.html'
-    elsif file_url[-1] == '/' or not file_path_elements[-1].include? '.'
-      dir_path = backup_path + file_path_elements[0..-1].join('/')
-      file_path = backup_path + file_path_elements[0..-1].join('/') + '/index.html'
+      dir_path = current_backup_path
+      file_path = File.join(dir_path, 'index.html')
+    elsif file_url[-1] == '/' || (sanitized_path_elements.last && !sanitized_path_elements.last.include?('.'))
+      # if file_id is a directory, we treat it as such
+      dir_path = File.join(current_backup_path, *sanitized_path_elements)
+      file_path = File.join(dir_path, 'index.html')
     else
-      dir_path = backup_path + file_path_elements[0..-2].join('/')
-      file_path = backup_path + file_path_elements[0..-1].join('/')
-    end
-    if Gem.win_platform?
-      dir_path = dir_path.gsub(/[:*?&=<>\\|]/) {|s| '%' + s.ord.to_s(16) }
-      file_path = file_path.gsub(/[:*?&=<>\\|]/) {|s| '%' + s.ord.to_s(16) }
+      # if file_id is a file, we treat it as such
+      filename = sanitized_path_elements.pop
+      dir_path = File.join(current_backup_path, *sanitized_path_elements)
+      file_path = File.join(dir_path, filename)
     end
 
     # check existence *before* download attempt
