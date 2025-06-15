@@ -7,7 +7,8 @@ module ArchiveAPI
     # Automatically append /* if the URL doesn't contain a path after the domain
     # This is a workaround for an issue with the API and *some* domains.
     # See https://github.com/StrawberryMaster/wayback-machine-downloader/issues/6
-    if url && !url.match(/^https?:\/\/.*\//i)
+    # But don't do this when exact_url flag is set
+    if url && !url.match(/^https?:\/\/.*\//i) && !@exact_url
       url = "#{url}/*"
     end
 
